@@ -57,3 +57,14 @@ test('wire contract and feature boundaries remain intact', () => {
 	assert.match(controller, /static constexpr uint8_t SPATIAL_BPM_DRIFT_ID = 241/);
 	assert.doesNotMatch(node, /SPATIAL_(?:LATENCY_FLOOR|BPM_DRIFT)_ID/);
 });
+
+test('HTTP OTA pre-suspend wait services only the bounded VFX renderer', () => {
+	const tubesCpp = fs.readFileSync(path.join(root, 'usermods/Tubes/Tubes.cpp'), 'utf8');
+	const tubesHeader = fs.readFileSync(path.join(root, 'usermods/Tubes/Tubes.h'), 'utf8');
+	const controller = fs.readFileSync(path.join(root, 'usermods/Tubes/controller.h'), 'utf8');
+	assert.match(tubesCpp, /while \(!tubes\.httpOtaVfxReadyToSuspend\(\)[\s\S]*tubes\.serviceHttpOtaVfx\(\)/);
+	assert.match(tubesHeader, /void serviceHttpOtaVfx\(\) \{ controller\.serviceHttpOtaVfx\(\); \}/);
+	assert.match(controller, /void serviceHttpOtaVfx\(\)[\s\S]*drawExperimentOverlay\(\);[\s\S]*strip\.show\(\);/);
+	const waitLoop = tubesCpp.match(/while \(!tubes\.httpOtaVfxReadyToSuspend\(\)[\s\S]*?\n  \}/)?.[0] || '';
+	assert.doesNotMatch(waitLoop, /controller\.update|node\.update|Update\.write/);
+});

@@ -611,6 +611,12 @@ class PatternController : public MessageReceiver {
 
 #ifdef TUBES_ENABLE_HTTP_OTA_VFX
   void beginHttpOtaVfx() { purpleOta.begin(millis()); }
+  void serviceHttpOtaVfx() {
+    // Service only this bounded overlay before suspension; do not run mesh,
+    // patterns, usermods, or update writes from the blocking upload handler.
+    drawExperimentOverlay();
+    strip.show();
+  }
   bool httpOtaVfxReadyToSuspend() const { return purpleOta.phaseAt(millis()) == TubesExperiment::PurplePhase::ReadyToSuspend; }
   void suspendHttpOtaVfx() { purpleOta.suspended(); }
   void succeedHttpOtaVfx() { purpleOta.succeeded(millis()); }

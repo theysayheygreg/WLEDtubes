@@ -8,7 +8,10 @@ REGISTER_USERMOD(tubes);
 extern "C" bool tubesHttpOtaVfxBeforeSuspend() {
   tubes.beginHttpOtaVfx();
   const uint32_t started = millis();
-  while (!tubes.httpOtaVfxReadyToSuspend() && millis() - started < 1000U) delay(1);
+  while (!tubes.httpOtaVfxReadyToSuspend() && millis() - started < 1000U) {
+    tubes.serviceHttpOtaVfx();
+    delay(1);
+  }
   tubes.suspendHttpOtaVfx();
   return true;
 }

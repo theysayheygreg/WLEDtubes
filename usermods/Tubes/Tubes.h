@@ -106,6 +106,7 @@ class TubesUsermod : public Usermod {
   public:
 #ifdef TUBES_ENABLE_HTTP_OTA_VFX
     void beginHttpOtaVfx() { controller.beginHttpOtaVfx(); }
+    void serviceHttpOtaVfx() { controller.serviceHttpOtaVfx(); }
     bool httpOtaVfxReadyToSuspend() const { return controller.httpOtaVfxReadyToSuspend(); }
     void suspendHttpOtaVfx() { controller.suspendHttpOtaVfx(); }
     void succeedHttpOtaVfx() { controller.succeedHttpOtaVfx(); }
