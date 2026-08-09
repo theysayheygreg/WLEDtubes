@@ -5,6 +5,7 @@ const path = require('node:path');
 const {spawnSync} = require('node:child_process');
 
 const root = path.resolve(__dirname, '..');
+const fixtures = path.join(root, 'tools/fixtures');
 
 test('Tubes experiment overlay behavior is host-testable', () => {
 	const output = path.join(process.env.TMPDIR || '/tmp', `tubes-experiment-${process.pid}`);
@@ -89,6 +90,29 @@ test('wire contract and feature boundaries remain intact', () => {
 	assert.ok(controller.indexOf('do_pattern_changes();') < controller.indexOf('drawExperimentOverlay();'));
 	assert.doesNotMatch(controller, /SPATIAL_(?:LATENCY_FLOOR|BPM_DRIFT)_ID|selectSpatialExperiment|isLeading\(\).*spatial|spatial.*isLeading\(\)/);
 	assert.doesNotMatch(node, /SpatialMode|spatialMode/);
+});
+
+test('M0 compatibility contract records the conductor boundary', () => {
+	const contract = fs.readFileSync(path.join(root, 'usermods/Tubes/docs/S3_CONDUCTOR_CONTRACT.md'), 'utf8');
+	for (const statement of [
+		'exactly 84 bytes', 'exactly 24 bytes', '`MasterRole = 200`', 'IDs `0..23`', 'IDs `24+`',
+		'logical Tubes node', 'no physical LED output', 'current and next', 'same WLED 16.0.1',
+		'Arduino-ESP32 2.0.18', 'mixed-firmware', 'hardware write gate'
+	]) assert.match(contract, new RegExp(statement.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
+});
+
+test('legacy packet golden fixtures preserve canonical bytes', () => {
+	const frame = fs.readFileSync(path.join(fixtures, 'tubes-v2-state.bin'));
+	assert.equal(frame.length, 84);
+	assert.equal(frame.toString('hex'),
+		'3412785602000000000000000403020120' +
+		'007800004433221105001706090007000b00020110000000' +
+		'0080000088776655090018030a000d000c01040820000000' +
+		'00000000000000000000000000000000' + '000000');
+
+	const route = fs.readFileSync(path.join(fixtures, 'mobile-route-v1.bin'));
+	assert.equal(route.length, 24);
+	assert.equal(route.toString('hex'), '4d4352540118030034127856efcdab8904030201b80b2a00');
 });
 
 test('Tubes owns OTA suspension through the generic usermod callback', () => {
