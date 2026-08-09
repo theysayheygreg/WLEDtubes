@@ -2,6 +2,24 @@
 
 The future S3 conductor is a **full logical Tubes node** with **no physical LED output**. It participates in election, timing, scheduling, state generation, and relay behavior as a conductor while rendering only to a virtual strip. M0 documents and freezes compatibility; it does not add an S3 build or implementation.
 
+## M1B implementation
+
+`waveshare_s3_tubes_remote` defines `TUBES_NULL_OUTPUT` and renders 60 logical
+pixels through the normal WLED strip, segment, effect, and Tubes overlay paths.
+The final bus is `BusTubesNull`: an addressable packed-RGB framebuffer whose
+`show()` is intentionally empty. `BusManager::add()` replaces every requested
+bus under this flag, including a physical or network bus restored from flash,
+before any transport constructor can run. Future AMOLED preview code can read
+the rendered frame through the existing `BusManager::getBus()` and
+`Bus::getPixelColor()` interfaces.
+
+IDs 24 and above still execute WLED's real effect engine and are cross-faded by
+the existing Tubes controller; they are not substituted with fake patterns.
+This is compile-tested on the pinned WLED 16 / Arduino-ESP32 2 stack. Until an
+S3 device is exercised, framebuffer cadence and effect pixels remain a
+compile-only hardware limitation; the no-transport guarantee is structural and
+does not depend on runtime configuration.
+
 ## Wire contract
 
 - A deployed v2 `NodeMessage` is immutable: exactly 84 bytes, little-endian, including existing alignment and reserved bytes. Do not repack, extend, or reinterpret it.
