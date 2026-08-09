@@ -9,5 +9,6 @@ OPI PSRAM (`qio_opi`), with native USB CDC enabled at boot. Peripheral pin assum
 - QMI8658 IMU and AXP2101-compatible PMU on the shared I2C bus
 
 These are integration assumptions only. They require read-only confirmation against the
-physical board and vendor schematic after hardware arrives. This slice does not initialize,
-write to, or flash hardware.
+physical board and vendor schematic after hardware arrives. The canary itself performs no
+initialization and does not write to hardware. The compiled WLED firmware is executable and
+must not be flashed before the hardware gates are complete.
