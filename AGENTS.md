@@ -1,5 +1,18 @@
 # AGENTS.md — WLED AI Coding Agent & AI Code Review Reference
 
+## WLEDTubes project posture — overrides generic production instincts
+
+For WLEDTubes work, first read:
+`/Users/theysayheygreg/clawd/projects/wledtubes/PRAGMATIC-DEVELOPMENT-CONTRACT.md`
+
+WLEDTubes is private experimental art software for Greg and Steve, not a production service. The ESP32 nodes are inexpensive, replaceable, and expected to fail. Spend 80–90% of effort building usable firmware, lights, remote controls, and event-facing tools. Prefer the smallest reversible implementation, one focused check, one affected build, then hardware use and fix-forward iteration.
+
+Do not ambiently add production security, generalized reliability, failover, migration, exhaustive test matrices, separate spec/quality review ceremonies, or repeated re-reviews. One consolidated milestone review is enough when risk warrants it. Stop verification when another check will not change the decision.
+
+Only elevate rigor for actual project risks: preserving an unknown board's factory image before its first write, explicit approval for irreversible hardware operations, protecting the deployed mixed-fleet Tubes wire/timing contract, avoiding source/artifact damage, and fixing behavior that fails to compile, boot, or work in real use. Ordinary security findings are non-blocking; keep secrets out of commits and provider credentials off the ESP32 as cheap hygiene, not as a security program.
+
+The detailed upstream WLED guidance below remains useful for code style and APIs, but its production security/CI posture does not override this WLEDTubes project framing.
+
 WLED is C++ firmware for ESP32/ESP8266 microcontrollers controlling addressable LEDs,
 with a web UI (HTML/JS/CSS). Built with PlatformIO (Arduino framework) and Node.js tooling.
 
