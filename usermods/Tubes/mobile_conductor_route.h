@@ -6,7 +6,7 @@
 // Models the bounded, allocation-free route sidecar used by spatial-aware Tubes.
 constexpr uint32_t MOBILE_ROUTE_MAGIC = 0x5452434dUL; // "MCRT" little-endian
 constexpr uint8_t MOBILE_ROUTE_VERSION = 1;
-constexpr uint8_t MOBILE_ROUTE_SIZE = 28;
+constexpr uint8_t MOBILE_ROUTE_SIZE = 24;
 constexpr uint32_t MOBILE_ROUTE_ADVERTISEMENT_MS = 500;
 constexpr uint16_t MOBILE_ROUTE_FRESHNESS_MS = 3000;
 constexpr uint32_t MOBILE_ROUTE_MIN_DWELL_MS = 1500;
@@ -32,7 +32,6 @@ struct MobileRouteAdvertisement {
   uint32_t sequence;
   uint16_t freshnessMs;
   uint16_t routeCost;
-  uint32_t beatEpochMarker;
 };
 #pragma pack(pop)
 
@@ -50,7 +49,7 @@ constexpr uint16_t addMobileRouteCost(uint16_t cost, uint16_t addition) {
 }
 
 inline MobileRouteAdvertisement makeMobileRouteAdvertisement(uint16_t conductorId, uint16_t senderId,
-    uint32_t sessionNonce, uint32_t sequence, uint8_t hop, uint16_t routeCost, uint32_t beatEpochMarker) {
+    uint32_t sessionNonce, uint32_t sequence, uint8_t hop, uint16_t routeCost) {
   MobileRouteAdvertisement advertisement = {};
   advertisement.magic = MOBILE_ROUTE_MAGIC;
   advertisement.version = MOBILE_ROUTE_VERSION;
@@ -62,7 +61,6 @@ inline MobileRouteAdvertisement makeMobileRouteAdvertisement(uint16_t conductorI
   advertisement.sequence = sequence;
   advertisement.freshnessMs = MOBILE_ROUTE_FRESHNESS_MS;
   advertisement.routeCost = routeCost;
-  advertisement.beatEpochMarker = beatEpochMarker;
   return advertisement;
 }
 
@@ -84,20 +82,23 @@ inline bool mobileRouteSequenceNewer(uint32_t candidate, uint32_t previous) {
 
 class MobileRouteModel {
  public:
-  // Selects a parent from receiver-observed RSSI without reading or changing beat state.
-  bool observe(const MobileRouteAdvertisement &advertisement, int8_t rssi, uint32_t now,
-      const uint32_t &beatFrame) {
-    (void)beatFrame;
+  // Selects a parent from receiver-observed RSSI and conductor-wide sequence freshness.
+  bool observe(const MobileRouteAdvertisement &advertisement, int8_t rssi, uint32_t now) {
     expire(now);
     if (!isMobileRouteAdvertisement(advertisement) || advertisement.hop >= MOBILE_ROUTE_MAX_HOP) return false;
     if (_valid && (advertisement.conductorId != _conductorId || advertisement.sessionNonce != _sessionNonce)) return false;
-    if (_haveSequence && !mobileRouteSequenceNewer(advertisement.sequence, _latestSequence)) return false;
+    if (_haveSequence && advertisement.sequence != _latestSequence
+        && !mobileRouteSequenceNewer(advertisement.sequence, _latestSequence)) return false;
 
-    const uint32_t sequenceGap = _haveSequence ? advertisement.sequence - _latestSequence - 1U : 0;
+    const bool sequenceAdvanced = !_haveSequence || advertisement.sequence != _latestSequence;
+    const uint32_t sequenceGap = _haveSequence && sequenceAdvanced
+      ? advertisement.sequence - _latestSequence - 1U : 0;
     const uint16_t lossCost = static_cast<uint16_t>((sequenceGap > 8U ? 8U : sequenceGap) * MOBILE_ROUTE_LOSS_COST);
     const uint16_t cost = observedCost(advertisement, rssi, lossCost);
-    _latestSequence = advertisement.sequence;
-    _haveSequence = true;
+    if (sequenceAdvanced) {
+      _latestSequence = advertisement.sequence;
+      _haveSequence = true;
+    }
 
     if (!_valid) {
       select(advertisement, cost, now);
@@ -107,7 +108,6 @@ class MobileRouteModel {
       _cost = cost;
       _hop = nextMobileRouteHop(advertisement.hop);
       _lastSeen = now;
-      clearCandidate();
       return false;
     }
     if (addMobileRouteCost(cost, MOBILE_ROUTE_SWITCH_HYSTERESIS) >= _cost) {
@@ -149,7 +149,6 @@ class MobileRouteModel {
   uint32_t sessionNonce() const { return _sessionNonce; }
   uint32_t sequence() const { return _latestSequence; }
   uint16_t cost() const { return _cost; }
-  uint32_t beatEpochMarker() const { return _beatEpochMarker; }
 
  private:
   static uint16_t observedCost(const MobileRouteAdvertisement &advertisement, int8_t rssi, uint16_t lossCost) {
@@ -168,7 +167,6 @@ class MobileRouteModel {
     _hop = nextMobileRouteHop(advertisement.hop);
     _cost = cost;
     _lastSeen = now;
-    _beatEpochMarker = advertisement.beatEpochMarker;
     clearCandidate();
   }
 
@@ -186,7 +184,6 @@ class MobileRouteModel {
   uint32_t _latestSequence = 0;
   uint32_t _lastSeen = 0;
   uint32_t _candidateSince = 0;
-  uint32_t _beatEpochMarker = 0;
   uint16_t _cost = MOBILE_ROUTE_MAX_COST;
   uint8_t _hop = MOBILE_ROUTE_SHELL_UNKNOWN;
 };

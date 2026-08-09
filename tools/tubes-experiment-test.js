@@ -66,9 +66,12 @@ test('wire contract and feature boundaries remain intact', () => {
 	const route = fs.readFileSync(path.join(root, 'usermods/Tubes/mobile_conductor_route.h'), 'utf8');
 	assert.match(route, /MOBILE_ROUTE_MAGIC/);
 	assert.match(route, /MOBILE_ROUTE_VERSION/);
-	assert.match(route, /MOBILE_ROUTE_SIZE/);
+	assert.match(route, /MOBILE_ROUTE_SIZE = 24/);
 	assert.match(route, /static_assert\(sizeof\(MobileRouteAdvertisement\) == MOBILE_ROUTE_SIZE/);
 	assert.match(route, /static_assert\(sizeof\(MobileRouteAdvertisement\) != 84/);
+	assert.doesNotMatch(route, /\b(?:beat|bpm|epoch)\w*\b/i);
+	assert.doesNotMatch(node, /mobileRoute(?:Beat|Bpm|Epoch)/i);
+	assert.match(route, /bool observe\(const MobileRouteAdvertisement &advertisement, int8_t rssi, uint32_t now\)/);
 	assert.match(node, /#ifdef TUBES_ENABLE_SPATIAL_PATTERNS[\s\S]*isMobileRouteAdvertisement/);
 	assert.match(node, /#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR[\s\S]*broadcastMobileRoute/);
 	const callback = node.indexOf('static void onEspNowMessage');
@@ -82,6 +85,7 @@ test('wire contract and feature boundaries remain intact', () => {
 	assert.match(ota, /context->resourcesReleased = true;\s*doReboot = true;/);
 	assert.ok(ota.indexOf('context->resourcesReleased = true;\n        doReboot = true;') < ota.indexOf('finalizeOTAFailure(context);\n    delete context;'));
 	const controller = fs.readFileSync(path.join(root, 'usermods/Tubes/controller.h'), 'utf8');
+	assert.doesNotMatch(controller, /setMobileRoute(?:Beat|Bpm|Epoch)/i);
 	assert.ok(controller.indexOf('do_pattern_changes();') < controller.indexOf('drawExperimentOverlay();'));
 	assert.doesNotMatch(controller, /SPATIAL_(?:LATENCY_FLOOR|BPM_DRIFT)_ID|selectSpatialExperiment|isLeading\(\).*spatial|spatial.*isLeading\(\)/);
 	assert.doesNotMatch(node, /SpatialMode|spatialMode/);

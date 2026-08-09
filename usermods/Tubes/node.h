@@ -362,12 +362,6 @@ class LightNode {
 #endif
     }
 
-#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
-    void setMobileRouteBeatEpoch(uint32_t beatEpochMarker) {
-        mobileRouteBeatEpoch = beatEpochMarker;
-    }
-#endif
-
 #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
     bool hasMobileRoute() {
 #ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
@@ -441,7 +435,6 @@ protected:
 #ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
     uint32_t mobileRouteSessionNonce = 0;
     uint32_t mobileRouteSequence = 0;
-    uint32_t mobileRouteBeatEpoch = 0;
 #endif
 
 #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
@@ -455,12 +448,11 @@ protected:
 #ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
         if (!mobileRouteSessionNonce) mobileRouteSessionNonce = esp_random();
         advertisement = makeMobileRouteAdvertisement(header.id, header.id, mobileRouteSessionNonce,
-          ++mobileRouteSequence, 0, 0, mobileRouteBeatEpoch);
+          ++mobileRouteSequence, 0, 0);
 #else
         if (!mobileRoute.valid(now)) return;
         advertisement = makeMobileRouteAdvertisement(mobileRoute.conductorId(), header.id,
-          mobileRoute.sessionNonce(), mobileRoute.sequence(), mobileRoute.shell(now), mobileRoute.cost(),
-          mobileRoute.beatEpochMarker());
+          mobileRoute.sessionNonce(), mobileRoute.sequence(), mobileRoute.shell(now), mobileRoute.cost());
 #endif
         mobileRouteLastBroadcast = now;
         espnowBroadcast.send(reinterpret_cast<const uint8_t*>(&advertisement), sizeof(advertisement));
@@ -468,8 +460,7 @@ protected:
 
     void onMobileRouteAdvertisement(const MobileRouteAdvertisement &advertisement, int8_t rssi) {
         if (advertisement.senderId == header.id || advertisement.conductorId == header.id) return;
-        const uint32_t unchangedBeatFrame = 0;
-        mobileRoute.observe(advertisement, rssi, millis(), unchangedBeatFrame);
+        mobileRoute.observe(advertisement, rssi, millis());
     }
     // AI: end
 #endif

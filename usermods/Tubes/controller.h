@@ -218,9 +218,6 @@ class PatternController : public MessageReceiver {
 
     beats.setup();
     node.setup();
-#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
-    node.setMobileRouteBeatEpoch(beats.frac);
-#endif
 
     if (role >= MasterRole) {
       node.reset(3850 + role); // MASTER ID

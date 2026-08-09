@@ -37,11 +37,11 @@ Latency mode derives phase from the synchronized `BeatController` frame and BPM,
 
 BPM drift reads synchronized `BeatController` BPM/frame and derives a local phase without mutating either. Root versus follower is determined only by `isFollowing()`; relay `isLeading()` bookkeeping cannot alter the local visual role. Followers use an honestly named artistic 2 BPM offset. Zero BPM produces no spatial draw.
 
-`NodeMessage` remains exactly 84 bytes, version 2, with a 64-byte payload. Its command, pattern, palette, and role meanings are unchanged. Spatial-aware builds additionally recognize a packed 28-byte versioned mobile-route sidecar. Legacy builds reject that sidecar by length before casting and never become spatial relays. Unknown or invalid sidecars fail passive.
+`NodeMessage` remains exactly 84 bytes, version 2, with a 64-byte payload. Its command, pattern, palette, and role meanings are unchanged. Spatial-aware builds additionally recognize a packed 24-byte versioned mobile-route sidecar. Legacy builds reject that sidecar by length before casting and never become spatial relays. Unknown or invalid sidecars fail passive.
 
 ## Mobile conductor
 
-Only `TUBES_ENABLE_MOBILE_CONDUCTOR` originates root route advertisements, and its build also uses the existing `MasterRole` clock authority. `TUBES_ENABLE_SPATIAL_PATTERNS` nodes rank and relay selected fresh routes using receiver-observed RSSI, cumulative bounded route cost, sequence/session identity, hysteresis, and dwell. The sidecar's beat epoch is a stable reference marker only: ordinary v2 `STATE` and `BEATS` handling remains the synchronization authority, and route selection, switching, or expiry never resets the beat.
+Only `TUBES_ENABLE_MOBILE_CONDUCTOR` originates root route advertisements, and its build also uses the existing `MasterRole` clock authority. `TUBES_ENABLE_SPATIAL_PATTERNS` nodes rank and relay selected fresh routes using receiver-observed RSSI, cumulative bounded route cost, sequence/session identity, hysteresis, and dwell. The sidecar carries route and shell data only; ordinary v2 `STATE` and `BEATS` handling in the 84-byte `NodeMessage` remains the sole synchronization authority.
 
 When a route is valid, latency mode delays each shell by 80 ms from the selected hop and BPM-drift mode offsets phase by the selected hop. Without a conductor route, the prior synchronized latency and root/follower BPM-drift rendering remains. Route loss expires to unknown shell and that fallback; it does not alter base rendering or the beat.
 
