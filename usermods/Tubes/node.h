@@ -78,6 +78,9 @@ class LightNode {
 #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
     MobileRouteModel mobileRoute;
 #endif
+#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
+    MobileConductorAuthority mobileConductorAuthority;
+#endif
 
   protected:
 
@@ -333,7 +336,7 @@ class LightNode {
 #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
     bool hasMobileRoute() {
 #ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
-        return true;
+        return mobileConductorAuthority.hasRoute(mobileRoute, millis());
 #else
         return mobileRoute.valid(millis());
 #endif
@@ -341,10 +344,16 @@ class LightNode {
 
     uint8_t mobileRouteShell() {
 #ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
-        return 0;
+        return mobileConductorAuthority.shell(mobileRoute, millis());
 #else
         return mobileRoute.shell(millis());
 #endif
+    }
+#endif
+
+#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
+    void setMobileConductorAuthority(bool enabled) {
+        mobileConductorAuthority.setRoot(enabled);
     }
 #endif
 
@@ -414,9 +423,15 @@ protected:
 
         MobileRouteAdvertisement advertisement;
 #ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
-        if (!mobileRouteSessionNonce) mobileRouteSessionNonce = esp_random();
-        advertisement = makeMobileRouteAdvertisement(header.id, header.id, mobileRouteSessionNonce,
-          ++mobileRouteSequence, 0, 0);
+        if (mobileConductorAuthority.shouldOriginate()) {
+            if (!mobileRouteSessionNonce) mobileRouteSessionNonce = esp_random();
+            advertisement = makeMobileRouteAdvertisement(header.id, header.id, mobileRouteSessionNonce,
+              ++mobileRouteSequence, 0, 0);
+        } else {
+            if (!mobileRoute.valid(now)) return;
+            advertisement = makeMobileRouteAdvertisement(mobileRoute.conductorId(), header.id,
+              mobileRoute.sessionNonce(), mobileRoute.sequence(), mobileRoute.shell(now), mobileRoute.cost());
+        }
 #else
         if (!mobileRoute.valid(now)) return;
         advertisement = makeMobileRouteAdvertisement(mobileRoute.conductorId(), header.id,

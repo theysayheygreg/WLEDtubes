@@ -69,5 +69,29 @@ int main() {
 
   assert(!route.valid(7101));
   assert(route.shell(7101) == MOBILE_ROUTE_SHELL_UNKNOWN);
+
+  // Compiled conductor capability is authority-neutral until the runtime role enables it.
+  MobileConductorAuthority authority;
+  MobileRouteModel observedRoute;
+  assert(!authority.isRoot());
+  assert(!authority.hasRoute(observedRoute, 100));
+  assert(authority.shell(observedRoute, 100) == MOBILE_ROUTE_SHELL_UNKNOWN);
+  assert(!authority.shouldOriginate());
+
+  MobileRouteAdvertisement observed = makeMobileRouteAdvertisement(700, 701, 1, 1, 0, 0);
+  assert(observedRoute.observe(observed, -50, 100));
+  assert(authority.hasRoute(observedRoute, 100));
+  assert(authority.shell(observedRoute, 100) == 1);
+  assert(!authority.shouldOriginate());
+
+  authority.setRoot(true);
+  assert(authority.isRoot());
+  assert(authority.hasRoute(observedRoute, 8000));
+  assert(authority.shell(observedRoute, 8000) == 0);
+  assert(authority.shouldOriginate());
+
+  authority.setRoot(false);
+  assert(!authority.isRoot());
+  assert(!authority.shouldOriginate());
 }
 // AI: end

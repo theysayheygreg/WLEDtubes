@@ -189,6 +189,9 @@ class PatternController : public MessageReceiver {
 #if defined(MASTER)
     role = MasterRole;
 #endif
+#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
+    node.setMobileConductorAuthority(role >= MasterRole);
+#endif
     Serial.printf("Role = %d\n", role);
 
     auto b = EEPROM.read(BOOT_OPTIONS_EEPROM_LOCATION);
@@ -956,6 +959,9 @@ class PatternController : public MessageReceiver {
 
   void setRole(ControllerRole r) {
     role = r;
+#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
+    node.setMobileConductorAuthority(role >= MasterRole);
+#endif
     Serial.printf("Role = %d", role);
     EEPROM.begin(EEPSIZE);
     EEPROM.write(ROLE_EEPROM_LOCATION, role);

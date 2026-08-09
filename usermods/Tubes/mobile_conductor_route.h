@@ -187,4 +187,23 @@ class MobileRouteModel {
   uint16_t _cost = MOBILE_ROUTE_MAX_COST;
   uint8_t _hop = MOBILE_ROUTE_SHELL_UNKNOWN;
 };
+
+// Runtime authority is deliberately separate from compiled route capability.
+class MobileConductorAuthority {
+public:
+  void setRoot(bool enabled) { _root = enabled; }
+  bool isRoot() const { return _root; }
+  bool shouldOriginate() const { return _root; }
+
+  bool hasRoute(MobileRouteModel &route, uint32_t now) const {
+    return _root || route.valid(now);
+  }
+
+  uint8_t shell(MobileRouteModel &route, uint32_t now) const {
+    return _root ? 0 : route.shell(now);
+  }
+
+private:
+  bool _root = false;
+};
 // AI: end
