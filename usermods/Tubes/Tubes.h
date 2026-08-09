@@ -44,6 +44,19 @@ class TubesUsermod : public Usermod {
     Master master = Master(controller);
     bool isLegacy = false;
     bool checkedLedSegments = false;
+    bool otaSuspended = false;
+    TubesExperiment::ExperimentOverlay experimentOverlay;
+#ifdef TUBES_ENABLE_SPATIAL_PATTERNS
+    TubesExperiment::SpatialMode spatialMode = TubesExperiment::SpatialMode::Off;
+#endif
+
+#ifdef TUBES_ENABLE_HTTP_OTA_VFX
+    void showOtaAcknowledgement(const CRGB &color) {
+      if (experimentOverlay.priority(true, false, TubesExperiment::SpatialMode::Off) != TubesExperiment::OverlayKind::OtaAcknowledgement) return;
+      for (uint16_t i = 0; i < strip.getLengthTotal(); i++) strip.setPixelColor(i, color);
+      strip.show();
+    }
+#endif
 
     void randomize() {
       randomSeed(esp_random());
@@ -104,14 +117,6 @@ class TubesUsermod : public Usermod {
     }
 
   public:
-#ifdef TUBES_ENABLE_HTTP_OTA_VFX
-    void beginHttpOtaVfx() { controller.beginHttpOtaVfx(); }
-    void serviceHttpOtaVfx() { controller.serviceHttpOtaVfx(); }
-    bool httpOtaVfxReadyToSuspend() const { return controller.httpOtaVfxReadyToSuspend(); }
-    void suspendHttpOtaVfx() { controller.suspendHttpOtaVfx(); }
-    void succeedHttpOtaVfx() { controller.succeedHttpOtaVfx(); }
-    void failHttpOtaVfx() { controller.failHttpOtaVfx(); }
-#endif
     void setup() {
 
       if (PinManager::isPinOk(MASTER_PIN)) {
@@ -144,6 +149,8 @@ class TubesUsermod : public Usermod {
 
     void loop()
     {
+      if (otaSuspended) return;
+
       EVERY_N_MILLISECONDS(10000) {
         randomize();
       }
@@ -162,6 +169,8 @@ class TubesUsermod : public Usermod {
     }
 
     void handleOverlayDraw() {
+      if (otaSuspended) return;
+
       // Draw effects layers over whatever WLED is doing.
       controller.handleOverlayDraw();
       debug.handleOverlayDraw();
@@ -205,6 +214,52 @@ class TubesUsermod : public Usermod {
 
       return false;
     }
+
+    void onUpdateBegin(bool init) override {
+      if (init) {
+#ifdef TUBES_ENABLE_HTTP_OTA_VFX
+        // This acknowledges only entry into HTTP OTA. Success remains the next boot's responsibility.
+        constexpr uint32_t PULSE_MS = 80;
+        for (uint8_t pulse = 0; pulse < 2; pulse++) {
+          showOtaAcknowledgement(CRGB(128, 0, 180));
+          const uint32_t onStarted = millis();
+          while (millis() - onStarted < PULSE_MS) delay(1);
+          showOtaAcknowledgement(CRGB::Black);
+          const uint32_t offStarted = millis();
+          while (millis() - offStarted < PULSE_MS) delay(1);
+        }
+#endif
+        otaSuspended = true;
+        return;
+      }
+
+      otaSuspended = false;
+#ifdef TUBES_ENABLE_HTTP_OTA_VFX
+      showOtaAcknowledgement(CRGB::Black);
+#endif
+    }
+
+#ifdef TUBES_ENABLE_SPATIAL_PATTERNS
+    void addToConfig(JsonObject &root) override {
+      JsonObject top = root.createNestedObject(F("Tubes"));
+      top[F("spatial-mode")] = static_cast<uint8_t>(spatialMode);
+    }
+
+    bool readFromConfig(JsonObject &root) override {
+      JsonObject top = root[F("Tubes")];
+      const int configuredMode = top[F("spatial-mode")] | 0;
+      spatialMode = TubesExperiment::parseSpatialMode(configuredMode);
+      controller.setSpatialMode(spatialMode);
+      return !top[F("spatial-mode")].isNull();
+    }
+
+    void appendConfigData() override {
+      oappend(F("dd=addDropdown('Tubes','spatial-mode');"));
+      oappend(F("addOption(dd,'Off','0');"));
+      oappend(F("addOption(dd,'Latency','1');"));
+      oappend(F("addOption(dd,'BPM drift','2');"));
+    }
+#endif
 
     uint16_t getId() override { return USERMOD_ID_TUBES; }
 };

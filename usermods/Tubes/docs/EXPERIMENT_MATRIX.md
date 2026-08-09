@@ -10,7 +10,7 @@ The base `esp32_quinled_dig2go_tubes` environment remains the deployed byte and 
 | `esp32_quinled_dig2go_tubes_spatial` | no | no | yes |
 | `esp32_quinled_dig2go_tubes_combined` | yes | yes | yes |
 
-All experiment rendering uses fixed state and writes directly to the current strip. The normal beat and pattern scheduler continues to advance underneath each clip. There is no framebuffer copy, queue, heap allocation, or restart used to reveal the base frame.
+Experiment rendering is allocation-free and has explicit priority: HTTP OTA acknowledgement, HELLO, selected spatial mode, then the unchanged base. The base environment contains no experiment flags or active overlay work.
 
 ## HELLO
 
@@ -18,20 +18,22 @@ HELLO is a 500 ms logical bottom-to-top rainbow. It observes only this node's st
 
 The deployed 84-byte message contains no global membership event or reply correlation. Exact flock-wide call/response cannot be implemented without a versioned, backward-compatible protocol extension. No field or command has been added or repurposed here.
 
-Logical pixel zero is the default product bottom. WLED's existing bus `rev` geometry maps logical writes to reversed physical wiring; the renderer does not reverse those pixels a second time. There is no richer authoritative product-orientation field in the current Tubes configuration, so this default is centralized in `logicalPixel()`.
+WLED bus and segment reversal remain the only owner of physical orientation. Experiment rendering writes logical segment order and does not add another reversal layer.
 
 ## Purple HTTP OTA
 
-This variant hooks only the HTTP upload lifecycle in `wled00/ota_update.cpp`; it does not hook the Tubes `AutoUpdater` pull path. Before `strip.suspend()`, it requests two 200 ms purple pulses separated by 200 ms dark intervals. The wait is bounded to one second and the main scheduler performs all LED writes. No LED service is attempted during `Update.write()`.
+Tubes uses WLED's generic `Usermod::onUpdateBegin(bool)` lifecycle; WLED core contains no Tubes hook or feature conditional. With the HTTP OTA flag enabled, the begin callback shows exactly two 80 ms whole-strand purple pulses, separated by 80 ms dark intervals, before Tubes marks itself OTA-suspended. It calls `strip.show()` directly and yields while waiting. Tubes loop, mesh, controller, patterns, pull updater, and overlay work remain stopped during `Update.write()`.
 
-After a successful `Update.end(true)`, WLED resumes the strip and usermods, performs two 500 ms purple pulses separated by 500 ms dark intervals, then permits reboot. An update error clears the transient and reveals the current base. The colors mean only "HTTP OTA lifecycle entered" and "Update.end(true) succeeded." They do not represent upload progress, cryptographic verification, candidate health, rollback protection, or successful boot of the candidate.
+The purple pulse acknowledges only that HTTP OTA is beginning. It is not upload progress, success, candidate health, rollback protection, or proof that the candidate booted. Successful `Update.end(true)` retains WLED's immediate reboot semantics: usermods are not resumed and no success pulse is shown. A success indication is intentionally absent until a persistent candidate plus post-boot health contract exists. Terminal failures immediately restore the strip, usermods, and watchdog through WLED's idempotent failure finalizer; `onUpdateBegin(false)` clears Tubes suspension and the purple overlay.
 
 ## Spatial experiments
 
-The local-only selectors `240` (latency floor) and `241` (BPM drift) are deliberately outside the deployed pattern registry. They are never stored in `TubeState.pattern_id` or sent in `NodeMessage`, so deployed IDs `0–23` and WLED-backed IDs `24` and above remain unchanged. Selection is an explicit compile-only/local controller path.
+Spatial builds expose a local-only Tubes usermod setting with `off`, `latency`, and `bpm-drift`. It persists in WLED usermod configuration, defaults to `off`, and unknown values fail closed to `off`. The selection never uses `TubeState.pattern_id`, WLED effect IDs, radio command IDs, or packet fields. There is no overlay while off, so ordinary fleet patterns remain visibly unchanged by default.
 
-Latency floor uses `max(configured minimum, 250 ms, observed latency when actually available)`. Production currently has no measured latency, so it honestly uses the floor. Its event lasts 320 ms and repeats every 2600 ms; the remainder is exactly dark.
+Latency mode derives phase from the synchronized `BeatController` frame and BPM, not device boot time. Its named artistic minimum is 250 ms. The event is on for exactly 320 ms within a 2600 ms cycle and the remaining interval is exactly dark. It does not claim to measure observed network latency.
 
-BPM drift reads the synchronized `BeatController` BPM/frame and derives a local phase with a configured offset constrained to 2 or 4 BPM. It never mutates the controller BPM or frame. The only available shell information is local: leader/root is shell 0 and a directly following node is shell 1. The packet has no global graph, BFS shell, coordinates, or measured latency, so none are inferred. There is no microphone or audio dependency.
+BPM drift reads synchronized `BeatController` BPM/frame and derives a local phase without mutating either. Root versus follower is determined only by `isFollowing()`; relay `isLeading()` bookkeeping cannot alter the local visual role. Followers use an honestly named artistic 2 BPM offset. Zero BPM produces no spatial draw.
 
-Hardware validation remains required for physical orientation, perceived grouping timing, flash-write stability, success-pulse visibility, reboot timing, mixed-fleet behavior, current draw, and multi-device spatial appearance.
+There are no wire changes: `NodeMessage` remains 84 bytes, version 2, with a 64-byte payload, and no capability packet exists. With spatial off, control-to-spatial, spatial-to-control, and relay traffic retains existing packet bytes and command semantics. Older/non-spatial firmware ignores the local WLED configuration because it is never transmitted.
+
+Hardware remains untested. Physical orientation, perceived HELLO timing, pre-ack visibility, flash-write stability, reboot timing, mixed-fleet radio behavior, current draw, and multi-device spatial appearance require device validation.

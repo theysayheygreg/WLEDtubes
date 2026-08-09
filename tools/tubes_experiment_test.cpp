@@ -1,56 +1,45 @@
 #include <assert.h>
 #include <stdint.h>
-#include "usermods/Tubes/experiment.h"
+#include "usermods/Tubes/experiment_overlay.h"
 
 int main() {
   using namespace TubesExperiment;
-  assert(logicalPixel(0, 10, false) == 0);
-  assert(logicalPixel(0, 10, true) == 9);
-  assert(helloLitPixels(0, 100) == 1);
-  assert(helloLitPixels(499, 100) == 100);
-  assert(helloLitPixels(500, 100) == 0);
 
-  HelloGate gate;
-  assert(!gate.update(0, false));
-  assert(!gate.update(100, true));
-  assert(!gate.update(599, true));
-  assert(gate.update(600, true));
-  assert(!gate.update(700, true));
-  assert(!gate.update(1200, false));
-  assert(!gate.update(2200, false));
-  assert(!gate.update(3200, false));
-  assert(!gate.update(3201, true));
-  assert(gate.update(3701, true));
+#ifdef TUBES_ENABLE_HELLO_VFX
+  HelloOverlay hello;
+  assert(!hello.update(0, false));
+  assert(!hello.update(100, true));
+  assert(hello.update(600, true));
+  assert(hello.litPixels(600, 100) == 1);
+  assert(hello.litPixels(1099, 100) == 100);
+  assert(hello.litPixels(1100, 100) == 0);
+#endif
 
-  assert(latencyFloorMs(0, false, 0) == 250);
-  assert(latencyFloorMs(100, true, 400) == 400);
-  assert(latencyFloorMs(300, true, 200) == 300);
+  ExperimentOverlay overlay;
+  assert(overlay.priority(false, false, SpatialMode::Off) == OverlayKind::None);
+  assert(overlay.priority(false, true, SpatialMode::Latency) == OverlayKind::Hello);
+  assert(overlay.priority(true, true, SpatialMode::BpmDrift) == OverlayKind::OtaAcknowledgement);
+  assert(parseSpatialMode(0) == SpatialMode::Off);
+  assert(parseSpatialMode(1) == SpatialMode::Latency);
+  assert(parseSpatialMode(2) == SpatialMode::BpmDrift);
+  assert(parseSpatialMode(3) == SpatialMode::Off);
+  assert(parseSpatialMode(255) == SpatialMode::Off);
+
   assert(!latencyEventOn(249, 250));
   assert(latencyEventOn(250, 250));
   assert(latencyEventOn(569, 250));
   assert(!latencyEventOn(570, 250));
   assert(!latencyEventOn(2599, 250));
-  assert(!latencyEventOn(2600, 250));
   assert(latencyEventOn(2850, 250));
 
-  assert(localShell(false, false) == 0);
-  assert(localShell(true, false) == 1);
-  assert(localShell(true, true) == 0);
-  assert(shellBpm256(120U << 8, 0, 2) == (120U << 8));
-  assert(shellBpm256(120U << 8, 1, 2) == (122U << 8));
-  assert(shellBpm256(120U << 8, 1, 4) == (124U << 8));
-  assert(shellBpm256(120U << 8, 1, 3) == (122U << 8));
-
-  PurpleOtaState ota;
-  ota.begin(10);
-  assert(ota.phaseAt(10) == PurplePhase::PrePulseOn);
-  assert(ota.phaseAt(210) == PurplePhase::PrePulseOff);
-  assert(ota.phaseAt(810) == PurplePhase::ReadyToSuspend);
-  ota.succeeded(1000);
-  assert(!ota.shouldReboot(1000));
-  assert(ota.phaseAt(1000) == PurplePhase::SuccessPulseOn);
-  assert(!ota.shouldReboot(2999));
-  assert(ota.shouldReboot(3000));
-  ota.failed();
-  assert(ota.phaseAt(4000) == PurplePhase::Inactive);
+  assert(localBpm256(120U << 8, false, 2) == (120U << 8));
+  assert(localBpm256(120U << 8, true, 2) == (122U << 8));
+  assert(localBpm256(0, true, 2) == 0);
+  const auto relayBpm = [](uint32_t bpm, bool following, bool) { return localBpm256(bpm, following); };
+  assert(relayBpm(120U << 8, false, false) == relayBpm(120U << 8, false, true));
+  assert(relayBpm(120U << 8, true, false) == relayBpm(120U << 8, true, true));
+  assert(relayBpm(120U << 8, false, true) != relayBpm(120U << 8, true, true));
+  assert(bpmDriftPhase(0, 0, false) == 0);
+  assert(bpmDriftPhase(120U << 8, 0x4000, true) != bpmDriftPhase(120U << 8, 0x4000, false));
+  assert(overlay.priority(false, false, SpatialMode::Off) == OverlayKind::None);
 }

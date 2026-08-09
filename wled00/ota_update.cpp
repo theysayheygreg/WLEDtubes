@@ -40,19 +40,14 @@ constexpr size_t METADATA_OFFSET = 0x1000;     // ESP8266: metadata appears at 4
 
 constexpr size_t METADATA_SEARCH_RANGE = 512;  // bytes
 
-#ifdef TUBES_ENABLE_HTTP_OTA_VFX
-extern "C" bool tubesHttpOtaVfxBeforeSuspend();
-extern "C" bool tubesHttpOtaVfxOnSuccess();
-extern "C" void tubesHttpOtaVfxOnError();
-#endif
-
 // State structure for update process
 namespace {
   struct UpdateContext {
     // State flags
     // FUTURE: the flags could be replaced by a state machine
     bool replySent = false;
-    bool needsRestart = false;
+    bool resourcesAcquired = false;
+    bool resourcesReleased = false;
     bool updateStarted = false;
     bool uploadComplete = false;
     bool releaseCheckPassed = false;
@@ -65,6 +60,17 @@ namespace {
     bool gzipDetected         = false;  // upload is a gzip stream (eboot will decompress at boot)
     #endif
   };
+}
+
+static void finalizeOTAFailure(UpdateContext* context) {
+  if (!context || !context->resourcesAcquired || context->resourcesReleased) return;
+  context->resourcesReleased = true;
+  if (context->updateStarted) Update.end(false);
+  strip.resume();
+  UsermodManager::onUpdateBegin(false);
+  #if WLED_WATCHDOG_TIMEOUT > 0
+  WLED::instance().enableWatchdog();
+  #endif
 }
 
 /**
@@ -189,7 +195,12 @@ static void validateGzippedOTA(UpdateContext* context) {
     const auto& buf = context->releaseMetadataBuffer;
     if (Update.write(const_cast<uint8_t*>(buf.data()), buf.size()) != buf.size()) {
       DEBUG_PRINTF_P(PSTR("OTA write failed on final chunk: %s\n"), Update.UPDATE_ERROR());
+      context->errorMessage = Update.UPDATE_ERROR();
+      return;
     }
+  } else {
+    context->errorMessage = Update.UPDATE_ERROR();
+    return;
   }
 
   DEBUG_PRINTLN(F("OTA Update End")); // for symmetry with the non-gzip path
@@ -203,7 +214,7 @@ static void endOTA(AsyncWebServerRequest *request) {
 
   DEBUG_PRINTF_P(PSTR("EndOTA %x --> %x (%d)\n"), (uintptr_t)request,(uintptr_t) context, context ? context->uploadComplete : 0);
   if (context) {
-    if (context->updateStarted) {  // We initialized the update
+    if (context->updateStarted && !context->resourcesReleased) {  // We initialized the update
       // We use Update.end() because not all forms of Update() support an abort.
       // If the upload is incomplete, Update.end(false) should error out.
       if (Update.end(context->uploadComplete)) {
@@ -211,30 +222,14 @@ static void endOTA(AsyncWebServerRequest *request) {
         #ifndef ESP8266
         bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
         #endif
-        #ifdef TUBES_ENABLE_HTTP_OTA_VFX
-        strip.resume();
-        UsermodManager::onUpdateBegin(false);
-        #if WLED_WATCHDOG_TIMEOUT > 0
-        WLED::instance().enableWatchdog();
-        #endif
-        if (!tubesHttpOtaVfxOnSuccess()) doReboot = true;
-        #else
+        // A successful update reboots immediately; do not resume work in the outgoing firmware.
+        context->resourcesReleased = true;
         doReboot = true;
-        #endif
-        context->needsRestart = false;
+      } else {
+        finalizeOTAFailure(context);
       }
     }
-
-    if (context->needsRestart) {
-      strip.resume();
-      UsermodManager::onUpdateBegin(false);
-      #if WLED_WATCHDOG_TIMEOUT > 0
-      WLED::instance().enableWatchdog();
-      #endif
-      #ifdef TUBES_ENABLE_HTTP_OTA_VFX
-      tubesHttpOtaVfxOnError();
-      #endif
-    }
+    finalizeOTAFailure(context);
     delete context;
   }
 };
@@ -251,19 +246,15 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
       return false;
   }
 
-  #ifdef TUBES_ENABLE_HTTP_OTA_VFX
-  tubesHttpOtaVfxBeforeSuspend();
-  #endif
-
   #if WLED_WATCHDOG_TIMEOUT > 0
   WLED::instance().disableWatchdog();
   #endif
   UsermodManager::onUpdateBegin(true); // notify usermods that update is about to begin (some may require task de-init)
 
   strip.suspend();
+  context->resourcesAcquired = true;
   backupConfig(); // backup current config in case the update ends badly
   strip.resetSegments();  // free as much memory as you can
-  context->needsRestart = true;
 
   DEBUG_PRINTF_P(PSTR("OTA Update Start, %x --> %x\n"), (uintptr_t)request,(uintptr_t) context);
 
@@ -278,6 +269,7 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
   if (!Update.begin(updateSize)) {
     context->errorMessage = Update.UPDATE_ERROR();
     DEBUG_PRINTF_P(PSTR("OTA Failed to begin: %s\n"), context->errorMessage.c_str());
+    finalizeOTAFailure(context);
     return false;
   }
 
@@ -320,6 +312,7 @@ std::pair<OTAResultStatus, String> getOTAResult(AsyncWebServerRequest* request) 
     if (!jsonGuard) return { OTAResultStatus::TryAgain, {} };  // busy — caller will deferResponse()
     validateGzippedOTA(context); // Stores error in context->errorMessage if there's a problem
     context->gzipDetected = false;  // all done
+    if (context->errorMessage.length()) finalizeOTAFailure(context);
   }
   #endif
 
@@ -399,6 +392,7 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
           DEBUG_PRINTF_P(PSTR("OTA declined: %s\n"), errorMessage);
           context->errorMessage = errorMessage;
           context->errorMessage += F(" Enable 'Ignore firmware validation' to proceed anyway.");
+          finalizeOTAFailure(context);
           return;
         } else {
           DEBUG_PRINTLN(F("OTA allowed: Release compatibility check passed"));
@@ -425,13 +419,21 @@ void handleOTAData(AsyncWebServerRequest *request, size_t index, uint8_t *data, 
   if (isFinal && !context->releaseCheckPassed) {
     DEBUG_PRINTLN(F("OTA failed: Validation never completed"));
     context->errorMessage = F("Release check data never arrived?");
+    finalizeOTAFailure(context);
     return;
   }
 
   if (!Update.hasError()) {
     if (Update.write(data, len) != len) {
       DEBUG_PRINTF_P(PSTR("OTA write failed on chunk %zu: %s\n"), index, Update.UPDATE_ERROR());
+      context->errorMessage = Update.UPDATE_ERROR();
+      finalizeOTAFailure(context);
+      return;
     }
+  } else {
+    context->errorMessage = Update.UPDATE_ERROR();
+    finalizeOTAFailure(context);
+    return;
   }
 
   if (isFinal) {
