@@ -39,7 +39,7 @@
 
 class TubesUsermod : public Usermod {
   private:
-    PatternController controller = PatternController();
+    PatternController controller;
     DebugController debug = DebugController(controller);
     Master master = Master(controller);
     bool isLegacy = false;
@@ -104,6 +104,13 @@ class TubesUsermod : public Usermod {
     }
 
   public:
+#ifdef TUBES_ENABLE_HTTP_OTA_VFX
+    void beginHttpOtaVfx() { controller.beginHttpOtaVfx(); }
+    bool httpOtaVfxReadyToSuspend() const { return controller.httpOtaVfxReadyToSuspend(); }
+    void suspendHttpOtaVfx() { controller.suspendHttpOtaVfx(); }
+    void succeedHttpOtaVfx() { controller.succeedHttpOtaVfx(); }
+    void failHttpOtaVfx() { controller.failHttpOtaVfx(); }
+#endif
     void setup() {
 
       if (PinManager::isPinOk(MASTER_PIN)) {

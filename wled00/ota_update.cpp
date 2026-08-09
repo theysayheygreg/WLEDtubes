@@ -40,6 +40,12 @@ constexpr size_t METADATA_OFFSET = 0x1000;     // ESP8266: metadata appears at 4
 
 constexpr size_t METADATA_SEARCH_RANGE = 512;  // bytes
 
+#ifdef TUBES_ENABLE_HTTP_OTA_VFX
+extern "C" bool tubesHttpOtaVfxBeforeSuspend();
+extern "C" bool tubesHttpOtaVfxOnSuccess();
+extern "C" void tubesHttpOtaVfxOnError();
+#endif
+
 // State structure for update process
 namespace {
   struct UpdateContext {
@@ -205,7 +211,16 @@ static void endOTA(AsyncWebServerRequest *request) {
         #ifndef ESP8266
         bootloopCheckOTA(); // let the bootloop-checker know there was an OTA update
         #endif
+        #ifdef TUBES_ENABLE_HTTP_OTA_VFX
+        strip.resume();
+        UsermodManager::onUpdateBegin(false);
+        #if WLED_WATCHDOG_TIMEOUT > 0
+        WLED::instance().enableWatchdog();
+        #endif
+        if (!tubesHttpOtaVfxOnSuccess()) doReboot = true;
+        #else
         doReboot = true;
+        #endif
         context->needsRestart = false;
       }
     }
@@ -215,6 +230,9 @@ static void endOTA(AsyncWebServerRequest *request) {
       UsermodManager::onUpdateBegin(false);
       #if WLED_WATCHDOG_TIMEOUT > 0
       WLED::instance().enableWatchdog();
+      #endif
+      #ifdef TUBES_ENABLE_HTTP_OTA_VFX
+      tubesHttpOtaVfxOnError();
       #endif
     }
     delete context;
@@ -232,6 +250,10 @@ static bool beginOTA(AsyncWebServerRequest *request, UpdateContext* context)
       setOTAReplied(request);
       return false;
   }
+
+  #ifdef TUBES_ENABLE_HTTP_OTA_VFX
+  tubesHttpOtaVfxBeforeSuspend();
+  #endif
 
   #if WLED_WATCHDOG_TIMEOUT > 0
   WLED::instance().disableWatchdog();

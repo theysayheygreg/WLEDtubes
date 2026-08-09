@@ -37,6 +37,8 @@ typedef struct {
     byte data[MESSAGE_DATA_SIZE] = {0};
 } NodeMessage;
 
+static_assert(sizeof(NodeMessage) == 84, "The deployed Tubes wire message must remain 84 bytes");
+
 #pragma pack(pop)
 
 typedef struct {
