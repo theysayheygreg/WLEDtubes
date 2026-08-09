@@ -43,6 +43,8 @@ BPM drift reads synchronized `BeatController` BPM/frame and derives a local phas
 
 Only `TUBES_ENABLE_MOBILE_CONDUCTOR` originates root route advertisements, and its build also uses the existing `MasterRole` clock authority. `TUBES_ENABLE_SPATIAL_PATTERNS` nodes rank and relay selected fresh routes using receiver-observed RSSI, cumulative bounded route cost, sequence/session identity, hysteresis, and dwell. The sidecar carries route and shell data only; ordinary v2 `STATE` and `BEATS` handling in the 84-byte `NodeMessage` remains the sole synchronization authority.
 
+The `waveshare_s3_tubes_remote` build compiles both spatial and mobile-conductor capabilities without defining `MASTER`. A fresh S3 is therefore authority-neutral: activation as a conductor requires a later persisted/UI role selection. This milestone does not add that role UI or a default authority policy, so the same firmware may remain an ordinary remote/follower or be deliberately promoted later.
+
 When a route is valid, latency mode delays each shell by 80 ms from the selected hop and BPM-drift mode offsets phase by the selected hop. Without a conductor route, the prior synchronized latency and root/follower BPM-drift rendering remains. Route loss expires to unknown shell and that fallback; it does not alter base rendering or the beat.
 
 Prototype route advertisements are 500 ms, stale after 3000 ms, require 1500 ms candidate dwell and 8 cost units of hysteresis, and cap hop at 15 and cumulative cost at 4095. RSSI is clamped to -100..-30 dBm before integer ranking. These values and coefficients are concise starting points, not RF-calibrated measurements. There are no fabricated coordinates or global BFS topology.

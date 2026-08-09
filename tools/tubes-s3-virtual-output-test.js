@@ -11,6 +11,9 @@ test('Waveshare S3 alone enables a 60-pixel null logical output', () => {
   const s3 = ini.match(/\[env:waveshare_s3_tubes_remote\]([\s\S]*?)(?=\n\[|$)/)[1];
   assert.match(s3, /-D TUBES_NULL_OUTPUT/);
   assert.match(s3, /-D PIXEL_COUNTS=60/);
+  assert.match(s3, /-D TUBES_ENABLE_SPATIAL_PATTERNS/);
+  assert.match(s3, /-D TUBES_ENABLE_MOBILE_CONDUCTOR/);
+  assert.doesNotMatch(s3, /-D MASTER(?:\s|$)/);
   assert.doesNotMatch(s3, /(?:LEDPIN|DATA_PINS|TYPE_NET_)/);
   const dig2go = ini.match(/\[env:esp32_quinled_dig2go_tubes\]([\s\S]*?)(?=\n\[|$)/)[1];
   assert.doesNotMatch(dig2go, /TUBES_NULL_OUTPUT/);
