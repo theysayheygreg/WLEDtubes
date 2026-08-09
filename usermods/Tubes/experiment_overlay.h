@@ -12,6 +12,8 @@ constexpr uint32_t LATENCY_ARTISTIC_MINIMUM_MS = 250;
 constexpr uint32_t LATENCY_EVENT_MS = 320;
 constexpr uint32_t LATENCY_REPEAT_MS = 2600;
 constexpr uint8_t BPM_DRIFT_ARTISTIC_OFFSET = 2;
+constexpr uint32_t SPATIAL_SHELL_DELAY_MS = 80;
+constexpr uint8_t SPATIAL_SHELL_PHASE_STEP = 16;
 
 enum class SpatialMode : uint8_t { Off, Latency, BpmDrift };
 enum class OverlayKind : uint8_t { None, Spatial, Hello, OtaAcknowledgement };
@@ -85,6 +87,14 @@ constexpr uint32_t localBpm256(uint32_t bpm256, bool following, uint8_t offsetBp
 
 constexpr uint8_t bpmDriftPhase(uint32_t bpm256, uint32_t beatFrame, bool following) {
   return bpm256 ? static_cast<uint8_t>((static_cast<uint64_t>(beatFrame) * localBpm256(bpm256, following)) / bpm256) : 0;
+}
+
+constexpr uint32_t spatialShellDelay(uint8_t shell) {
+  return shell == 0xff ? 0 : static_cast<uint32_t>(shell) * SPATIAL_SHELL_DELAY_MS;
+}
+
+constexpr uint8_t spatialShellPhase(uint8_t phase, uint8_t shell) {
+  return shell == 0xff ? phase : static_cast<uint8_t>(phase - shell * SPATIAL_SHELL_PHASE_STEP);
 }
 
 } // namespace TubesExperiment

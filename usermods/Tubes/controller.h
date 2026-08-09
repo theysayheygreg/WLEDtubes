@@ -218,6 +218,9 @@ class PatternController : public MessageReceiver {
 
     beats.setup();
     node.setup();
+#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
+    node.setMobileRouteBeatEpoch(beats.frac);
+#endif
 
     if (role >= MasterRole) {
       node.reset(3850 + role); // MASTER ID
@@ -569,10 +572,14 @@ class PatternController : public MessageReceiver {
 #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
     if (overlayKind == TubesExperiment::OverlayKind::Spatial && spatialMode == TubesExperiment::SpatialMode::Latency) {
       const uint32_t synchronizedMs = TubesExperiment::synchronizedMillis(beats.frac, beats.bpm);
-      const CRGB color = TubesExperiment::latencyEventOn(synchronizedMs) ? CRGB(64, 0, 96) : CRGB::Black;
+      const uint32_t minimumMs = TubesExperiment::LATENCY_ARTISTIC_MINIMUM_MS
+        + (node.hasMobileRoute() ? TubesExperiment::spatialShellDelay(node.mobileRouteShell()) : 0);
+      const CRGB color = TubesExperiment::latencyEventOn(synchronizedMs, minimumMs) ? CRGB(64, 0, 96) : CRGB::Black;
       for (uint16_t i = 0; i < length; i++) strip.setPixelColor(i, color);
     } else if (overlayKind == TubesExperiment::OverlayKind::Spatial && spatialMode == TubesExperiment::SpatialMode::BpmDrift && beats.bpm) {
-      const uint8_t phase = TubesExperiment::bpmDriftPhase(beats.bpm, beats.frac, node.isFollowing());
+      const uint8_t basePhase = TubesExperiment::bpmDriftPhase(beats.bpm, beats.frac, node.isFollowing());
+      const uint8_t phase = node.hasMobileRoute()
+        ? TubesExperiment::spatialShellPhase(basePhase, node.mobileRouteShell()) : basePhase;
       const uint8_t level = sin8_t(phase);
       for (uint16_t i = 0; i < length; i++) strip.setPixelColor(i, CRGB(level, 0, level));
     }

@@ -19,12 +19,26 @@ test('Tubes experiment overlay behavior is host-testable', () => {
 	}
 });
 
+test('mobile conductor route selection is host-testable', () => {
+	const output = path.join(process.env.TMPDIR || '/tmp', `tubes-mobile-conductor-${process.pid}`);
+	try {
+		const result = spawnSync('c++', ['-std=c++11', '-Wall', '-Wextra', '-Werror', '-I.',
+			'tools/tubes_mobile_conductor_test.cpp', '-o', output], {cwd: root, encoding: 'utf8'});
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+		const run = spawnSync(output, [], {encoding: 'utf8'});
+		assert.equal(run.status, 0, run.stderr || run.stdout);
+	} finally {
+		fs.rmSync(output, {force: true});
+	}
+});
+
 test('firmware matrix flags are isolated and release names are distinct', () => {
 	const ini = fs.readFileSync(path.join(root, 'platformio_tubes.ini'), 'utf8');
 	const expected = {
 		esp32_quinled_dig2go_tubes_hello: ['TUBES_ENABLE_HELLO_VFX'],
 		esp32_quinled_dig2go_tubes_purple_ota: ['TUBES_ENABLE_HTTP_OTA_VFX'],
 		esp32_quinled_dig2go_tubes_spatial: ['TUBES_ENABLE_SPATIAL_PATTERNS'],
+		esp32_quinled_dig2go_tubes_mobile_conductor: ['TUBES_ENABLE_MOBILE_CONDUCTOR', 'TUBES_ENABLE_SPATIAL_PATTERNS'],
 		esp32_quinled_dig2go_tubes_combined: ['TUBES_ENABLE_HELLO_VFX', 'TUBES_ENABLE_HTTP_OTA_VFX', 'TUBES_ENABLE_SPATIAL_PATTERNS'],
 	};
 	const releaseNames = new Set();
@@ -39,15 +53,28 @@ test('firmware matrix flags are isolated and release names are distinct', () => 
 		assert.ok(releases.length, `missing release name for ${environment}`);
 		releaseNames.add(releases.at(-1)[1]);
 	}
-	assert.equal(releaseNames.size, 4);
+	assert.equal(releaseNames.size, 5);
 	const base = ini.match(/\[env:esp32_quinled_dig2go_tubes\]([\s\S]*?)(?=\n\[|$)/)[1];
-	assert.doesNotMatch(base, /TUBES_ENABLE_(?:HELLO_VFX|HTTP_OTA_VFX|SPATIAL_PATTERNS)/);
+	assert.doesNotMatch(base, /TUBES_ENABLE_(?:HELLO_VFX|HTTP_OTA_VFX|SPATIAL_PATTERNS|MOBILE_CONDUCTOR)/);
 });
 
 test('wire contract and feature boundaries remain intact', () => {
 	const node = fs.readFileSync(path.join(root, 'usermods/Tubes/node.h'), 'utf8');
 	assert.match(node, /#define CURRENT_NODE_VERSION 2/);
 	assert.match(node, /#define MESSAGE_DATA_SIZE 64/);
+	assert.match(node, /static_assert\(sizeof\(NodeMessage\) == 84/);
+	const route = fs.readFileSync(path.join(root, 'usermods/Tubes/mobile_conductor_route.h'), 'utf8');
+	assert.match(route, /MOBILE_ROUTE_MAGIC/);
+	assert.match(route, /MOBILE_ROUTE_VERSION/);
+	assert.match(route, /MOBILE_ROUTE_SIZE/);
+	assert.match(route, /static_assert\(sizeof\(MobileRouteAdvertisement\) == MOBILE_ROUTE_SIZE/);
+	assert.match(route, /static_assert\(sizeof\(MobileRouteAdvertisement\) != 84/);
+	assert.match(node, /#ifdef TUBES_ENABLE_SPATIAL_PATTERNS[\s\S]*isMobileRouteAdvertisement/);
+	assert.match(node, /#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR[\s\S]*broadcastMobileRoute/);
+	const callback = node.indexOf('static void onEspNowMessage');
+	const filter = node.indexOf('static bool onEspNowFilter');
+	assert.ok(node.indexOf('len == sizeof(NodeMessage)', callback) < node.indexOf('(const NodeMessage*)msg', callback));
+	assert.ok(node.indexOf('len == sizeof(NodeMessage)', filter) < node.indexOf('(const NodeMessage*)msg', filter));
 	const experiment = fs.readFileSync(path.join(root, 'usermods/Tubes/experiment_overlay.h'), 'utf8');
 	assert.doesNotMatch(experiment, /\b(?:audio|microphone|micInput)\b/i);
 	const ota = fs.readFileSync(path.join(root, 'wled00/ota_update.cpp'), 'utf8');
@@ -57,7 +84,7 @@ test('wire contract and feature boundaries remain intact', () => {
 	const controller = fs.readFileSync(path.join(root, 'usermods/Tubes/controller.h'), 'utf8');
 	assert.ok(controller.indexOf('do_pattern_changes();') < controller.indexOf('drawExperimentOverlay();'));
 	assert.doesNotMatch(controller, /SPATIAL_(?:LATENCY_FLOOR|BPM_DRIFT)_ID|selectSpatialExperiment|isLeading\(\).*spatial|spatial.*isLeading\(\)/);
-	assert.doesNotMatch(node, /SpatialMode|spatialMode|SPATIAL_/);
+	assert.doesNotMatch(node, /SpatialMode|spatialMode/);
 });
 
 test('Tubes owns OTA suspension through the generic usermod callback', () => {
