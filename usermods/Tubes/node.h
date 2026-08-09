@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include "global_state.h"
 #include "espnow_broadcast.h"
+#include "node_message.h"
 #if defined(TUBES_ENABLE_SPATIAL_PATTERNS) || defined(TUBES_ENABLE_MOBILE_CONDUCTOR)
 #include "mobile_conductor_route.h"
 #endif
@@ -10,39 +11,6 @@
 // #define NODE_DEBUGGING
 // #define RELAY_DEBUGGING
 #define TESTING_NODE_ID 0
-
-#define CURRENT_NODE_VERSION 2
-
-#pragma pack(push,4) // set packing for consist transport across network
-// ideally this would have been pack 1, so we're actually wasting a
-// number of bytes across the network, but we've already shipped...
-
-typedef enum{
-    RECIPIENTS_ALL=0,  // Send to all neighbors; non-followers will ignore
-    RECIPIENTS_ROOT=1, // Send to root for rebroadcasting downward, all will see
-    RECIPIENTS_INFO=2, // Send to all neighbors "FYI"; none will ignore
-} MessageRecipients;
-
-typedef uint16_t MeshId;
-
-typedef struct {
-    MeshId id = 0;
-    MeshId uplinkId = 0;
-    uint8_t version = CURRENT_NODE_VERSION;
-} MeshNodeHeader;
-
-#define MESSAGE_DATA_SIZE 64
-typedef struct {
-    MeshNodeHeader header;
-    MessageRecipients recipients;
-    uint32_t timebase;
-    CommandId command;
-    byte data[MESSAGE_DATA_SIZE] = {0};
-} NodeMessage;
-
-static_assert(sizeof(NodeMessage) == 84, "The deployed Tubes wire message must remain 84 bytes");
-
-#pragma pack(pop)
 
 typedef struct {
     uint8_t status;

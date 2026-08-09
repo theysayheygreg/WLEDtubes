@@ -7,6 +7,15 @@ const {spawnSync} = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const fixtures = path.join(root, 'tools/fixtures');
 
+function readGoldenHeaderArray(name) {
+	const header = fs.readFileSync(path.join(fixtures, 'tubes_golden_packets.h'), 'utf8');
+	const match = header.match(new RegExp(`\\b${name}\\[(\\d+)\\]\\s*=\\s*\\{([^}]*)\\}`));
+	assert.ok(match, `missing ${name} in C++ fixture header`);
+	const bytes = Buffer.from([...match[2].matchAll(/0x([0-9a-f]{2})/gi)].map(value => parseInt(value[1], 16)));
+	assert.equal(bytes.length, Number(match[1]), `${name} initializer length`);
+	return bytes;
+}
+
 test('Tubes experiment overlay behavior is host-testable', () => {
 	const output = path.join(process.env.TMPDIR || '/tmp', `tubes-experiment-${process.pid}`);
 	try {
@@ -15,6 +24,20 @@ test('Tubes experiment overlay behavior is host-testable', () => {
 		assert.equal(result.status, 0, result.stderr || result.stdout);
 		const run = spawnSync(output, [], {encoding: 'utf8'});
 		assert.equal(run.status, 0, run.stderr || run.stdout);
+	} finally {
+		fs.rmSync(output, {force: true});
+	}
+});
+
+test('production NodeMessage raw bytes match the deployed golden fixture', (t) => {
+	const output = path.join(process.env.TMPDIR || '/tmp', `tubes-node-message-${process.pid}`);
+	try {
+		const result = spawnSync('c++', ['-std=c++11', '-Wall', '-Wextra', '-Werror', '-I.',
+			'tools/tubes_node_message_wire_test.cpp', '-o', output], {cwd: root, encoding: 'utf8'});
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+		const run = spawnSync(output, [], {encoding: 'utf8'});
+		if (run.status === 77) t.skip('raw NodeMessage fixture is defined only for little-endian targets');
+		else assert.equal(run.status, 0, run.stderr || run.stdout);
 	} finally {
 		fs.rmSync(output, {force: true});
 	}
@@ -61,9 +84,10 @@ test('firmware matrix flags are isolated and release names are distinct', () => 
 
 test('wire contract and feature boundaries remain intact', () => {
 	const node = fs.readFileSync(path.join(root, 'usermods/Tubes/node.h'), 'utf8');
-	assert.match(node, /#define CURRENT_NODE_VERSION 2/);
-	assert.match(node, /#define MESSAGE_DATA_SIZE 64/);
-	assert.match(node, /static_assert\(sizeof\(NodeMessage\) == 84/);
+	const nodeMessage = fs.readFileSync(path.join(root, 'usermods/Tubes/node_message.h'), 'utf8');
+	assert.match(nodeMessage, /#define CURRENT_NODE_VERSION 2/);
+	assert.match(nodeMessage, /#define MESSAGE_DATA_SIZE 64/);
+	assert.match(nodeMessage, /static_assert\(sizeof\(NodeMessage\) == 84/);
 	const route = fs.readFileSync(path.join(root, 'usermods/Tubes/mobile_conductor_route.h'), 'utf8');
 	assert.match(route, /MOBILE_ROUTE_MAGIC/);
 	assert.match(route, /MOBILE_ROUTE_VERSION/);
@@ -101,18 +125,11 @@ test('M0 compatibility contract records the conductor boundary', () => {
 	]) assert.match(contract, new RegExp(statement.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
 });
 
-test('legacy packet golden fixtures preserve canonical bytes', () => {
-	const frame = fs.readFileSync(path.join(fixtures, 'tubes-v2-state.bin'));
-	assert.equal(frame.length, 84);
-	assert.equal(frame.toString('hex'),
-		'3412785602000000000000000403020120' +
-		'007800004433221105001706090007000b00020110000000' +
-		'0080000088776655090018030a000d000c01040820000000' +
-		'00000000000000000000000000000000' + '000000');
-
-	const route = fs.readFileSync(path.join(fixtures, 'mobile-route-v1.bin'));
-	assert.equal(route.length, 24);
-	assert.equal(route.toString('hex'), '4d4352540118030034127856efcdab8904030201b80b2a00');
+test('binary fixtures exactly match the generated C++ fixture header', () => {
+	assert.deepEqual(readGoldenHeaderArray('TUBES_GOLDEN_NODE_V2_STATE'),
+		fs.readFileSync(path.join(fixtures, 'tubes-v2-state.bin')));
+	assert.deepEqual(readGoldenHeaderArray('TUBES_GOLDEN_ROUTE_V1'),
+		fs.readFileSync(path.join(fixtures, 'mobile-route-v1.bin')));
 });
 
 test('Tubes owns OTA suspension through the generic usermod callback', () => {
