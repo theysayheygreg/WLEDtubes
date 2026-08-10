@@ -1,6 +1,6 @@
 # P2P Update Collaboration Branch
 
-**Branch:** `greg/p2p-update`
+**Branch:** `p2p-update`
 
 **Base:** Steve's canonical `main`
 
@@ -62,6 +62,12 @@ trusted seed
 ```
 
 Newly updated devices do not independently broadcast update commands. Cross-target writes fail before erase or write.
+
+The branch currently expresses those checks with `FirmwareTargetContract`, an
+internal, non-wire structure covering hardware family, chip family, flash mode,
+flash size, partition-table SHA-256, and OTA-slot geometry. Unknown or partial
+contracts fail closed. This structure must not be serialized or assigned a mesh
+action key until Steve's canonical metadata transport defines that seam.
 
 ### 6. Easy Flash is installation and recovery
 

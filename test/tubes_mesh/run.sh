@@ -23,4 +23,5 @@ compile_and_run() {
 
 compile_and_run mesh_routing_test
 compile_and_run device_report_protocol_test
+compile_and_run firmware_target_contract_test
 compile_and_run deferred_bpm_broadcast_test

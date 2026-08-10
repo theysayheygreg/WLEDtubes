@@ -1,0 +1,101 @@
+#include <array>
+#include <cstdint>
+#include <iostream>
+#include <stdexcept>
+#include <string>
+#include <utility>
+
+#include "firmware_target_contract.h"
+
+namespace {
+
+void expect(bool condition, const std::string& message) {
+  if (!condition)
+    throw std::runtime_error(message);
+}
+
+FirmwareTargetContract dig2GoTarget() {
+  FirmwareTargetContract target;
+  target.hardwareFamily = TubeHardwareDig2Go;
+  target.chipFamily = FirmwareChipEsp32;
+  target.flashMode = FirmwareFlashModeDio;
+  target.flashSizeBytes = 4 * 1024 * 1024;
+  target.otaSlotOffset = 0x10000;
+  target.otaSlotSizeBytes = 0x180000;
+  for (uint8_t index = 0; index < sizeof(target.partitionTableSha256); index++)
+    target.partitionTableSha256[index] = index + 1;
+  return target;
+}
+
+void exact_target_is_admitted() {
+  const auto sender = dig2GoTarget();
+  const auto receiver = dig2GoTarget();
+  expect(firmwareTargetIsKnown(sender), "complete target was treated as unknown");
+  expect(matchFirmwareTarget(sender, receiver) == FirmwareTargetMatchExact,
+      "identical targets did not match");
+}
+
+void unknown_target_fails_closed() {
+  const auto sender = dig2GoTarget();
+  FirmwareTargetContract receiver;
+  receiver.hardwareFamily = TubeHardwareDig2Go;
+  receiver.chipFamily = FirmwareChipEsp32;
+  expect(!firmwareTargetIsKnown(receiver), "partial target was treated as known");
+  expect(matchFirmwareTarget(sender, receiver) == FirmwareTargetUnknown,
+      "partial target did not fail closed");
+}
+
+void every_hardware_dimension_must_match() {
+  const auto sender = dig2GoTarget();
+
+  auto receiver = sender;
+  receiver.hardwareFamily = TubeHardwareAthomC3;
+  expect(matchFirmwareTarget(sender, receiver) == FirmwareTargetHardwareMismatch,
+      "wrong board family was admitted");
+
+  receiver = sender;
+  receiver.chipFamily = FirmwareChipEsp32C3;
+  expect(matchFirmwareTarget(sender, receiver) == FirmwareTargetChipMismatch,
+      "wrong chip family was admitted");
+
+  receiver = sender;
+  receiver.flashMode = FirmwareFlashModeQio;
+  expect(matchFirmwareTarget(sender, receiver) == FirmwareTargetFlashModeMismatch,
+      "wrong flash mode was admitted");
+
+  receiver = sender;
+  receiver.flashSizeBytes *= 2;
+  expect(matchFirmwareTarget(sender, receiver) == FirmwareTargetFlashSizeMismatch,
+      "wrong flash size was admitted");
+
+  receiver = sender;
+  receiver.partitionTableSha256[31] ^= 0xff;
+  expect(matchFirmwareTarget(sender, receiver) == FirmwareTargetPartitionMismatch,
+      "wrong partition table was admitted");
+
+  receiver = sender;
+  receiver.otaSlotSizeBytes -= 0x1000;
+  expect(matchFirmwareTarget(sender, receiver) == FirmwareTargetOtaSlotMismatch,
+      "wrong OTA slot was admitted");
+}
+
+} // namespace
+
+int main() {
+  const std::array<std::pair<const char*, void (*)()>, 3> tests = {{
+    {"exact target is admitted", exact_target_is_admitted},
+    {"unknown target fails closed", unknown_target_fails_closed},
+    {"every hardware dimension must match", every_hardware_dimension_must_match},
+  }};
+
+  for (const auto& test : tests) {
+    try {
+      test.second();
+      std::cout << "PASS: " << test.first << '\n';
+    } catch (const std::exception& error) {
+      std::cerr << "FAIL: " << test.first << ": " << error.what() << '\n';
+      return 1;
+    }
+  }
+  return 0;
+}
