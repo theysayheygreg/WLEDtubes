@@ -93,6 +93,12 @@ This branch may make a compatible updated device the HTTP image source, but shou
 
 A sender may read and serve its running application partition. A receiver writes only through the platform OTA path into its inactive application slot. Ordinary peer OTA never writes a bootloader, partition table, merged recovery image, or NVS image.
 
+`RunningImageInfo` and the ESP32 `running_image_source` implementation establish
+the read-only source seam. They verify the running application with Espressif's
+image parser, use its exact image length rather than partition capacity, compute
+SHA-256 across exactly those bytes, and permit only bounded partition reads.
+No HTTP endpoint or receiver write path is connected yet.
+
 ### Bootstrap boundary
 
 Existing v12/v13 nodes understand the legacy version action and `WLED-UPDATE` HTTP OTA flow. They do not understand a new lease, hardware descriptor, or chunk protocol merely because v14 does.
@@ -156,7 +162,7 @@ When Steve's split palette/tempo/pattern/spatial/capability packets land:
 
 1. Freeze a hardware-target/update-manifest contract around existing v14 metadata.
 2. Add fail-before-write tests for exact target, partition capacity, image length, and hash.
-3. Trace the ESP32 running-partition read and target HTTP OTA lifecycle with synthetic bytes first.
+3. Add the HTTP source around the verified running-image reader and prove it with synthetic clients.
 4. Add one sender/one receiver update-session state machine with forwarding disabled.
 5. Prove interruption leaves the active receiver image bootable.
 6. Prove reboot, health reporting, and explicit baton handoff.
