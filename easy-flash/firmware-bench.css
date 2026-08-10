@@ -24,9 +24,5 @@
 .firmware-action:disabled { opacity:.5; cursor:not-allowed }
 .local-flash-status { min-height:2.8em; margin:8px 0 0; font-size:12px }
 .operation-receipt { margin-top:24px }
-#parkedFirmware { margin-top:28px; border-top:1px solid var(--line); padding-top:20px }
-#parkedFirmware > summary { color:var(--muted); font-weight:750 }
-#parkedFirmware > p { color:var(--muted); max-width:760px }
-.firmware-cards.parked { opacity:.72 }
-.firmware-cards.parked .firmware-card { background:#181613 }
+
 @media(max-width:800px) { .firmware-cards { grid-template-columns:1fr } }

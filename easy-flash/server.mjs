@@ -1,6 +1,5 @@
 import { createReadStream } from "node:fs";
-import { readFile, stat } from "node:fs/promises";
-import { createHash } from "node:crypto";
+import { stat } from "node:fs/promises";
 import { createServer } from "node:http";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -37,16 +36,7 @@ export const server = createServer(async (request, response) => {
 		}
 		return;
 	}
-	if (pathname === "/api/artifact") {
-		const artifactPath = join(root, "..", ".pio", "build", "esp32_quinled_dig2go_tubes", "firmware.bin");
-		try {
-			const bytes = await readFile(artifactPath);
-			response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }).end(JSON.stringify({ status: "local-build-unverified", expectedTargetFromBuildDirectory: "esp32_quinled_dig2go_tubes", releaseIdentity: "unverified — file location is not identity evidence", sourceIdentity: "unverified", sizeBytes: bytes.length, sha256: createHash("sha256").update(bytes).digest("hex"), kind: "application image only — not a complete recovery image" }));
-		} catch {
-			response.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" }).end(JSON.stringify({ status: "unavailable", identity: "No prebuilt or local-build artifact found" }));
-		}
-		return;
-	}
+
 	const relative = pathname === "/" ? "index.html" : pathname.slice(1);
 	const file = normalize(join(root, relative));
 	if (!file.startsWith(root)) { response.writeHead(403).end("Forbidden"); return; }

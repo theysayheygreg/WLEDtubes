@@ -25,7 +25,7 @@
 			<summary>Advanced — Hardware Firmware</summary>
 			<div class="bench-intro"><p class="eyebrow">HARDWARE TARGETS · DOWNLOAD + LAPTOP USB</p><h2>Flash the ESP connected to this laptop</h2><div class="warning"><strong>USE DESKTOP CHROME OR EDGE FOR USB</strong><span>Safari does not provide Web Serial and cannot access the ESP USB port. Downloads work in Safari; direct flashing requires opening this same Tailscale URL in Chrome or Edge.</span></div><p>The page downloads verified firmware from gregbot, then Web Serial writes the ESP plugged into this laptop. gregbot does not need the USB cable.</p><p>Select the exact hardware target, click <strong>Flash from this laptop</strong>, choose the USB serial port, and approve the write. Easy Flash refuses the wrong ESP family and checks the downloaded image before writing.</p></div>
 			<p id="firmwareManifestStatus">Loading verified hardware firmware…</p><div id="firmwareCards" class="firmware-cards"></div>
-			<details id="parkedFirmware"><summary>Parked behavior-firmware experiments</summary><p>Retained for reference while Steve’s runtime packet contracts are in flight. These are not installation choices and cannot be flashed from this page.</p><div id="parkedFirmwareCards" class="firmware-cards parked"></div></details>
+
 			<section id="firmwareOperationPanel" class="receipt-panel operation-receipt" hidden><p class="eyebrow">PREPARED — NOT WRITTEN</p><h2>Firmware operation receipt</h2><p>The verified artifact was prepared for download. No physical write occurred.</p><pre id="firmwareOperationReceipt"></pre></section>
 		</details>
 	</main>

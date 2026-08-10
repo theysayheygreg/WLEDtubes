@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-import { classifyFirmwareCatalog, makeFirmwareOperationReceipt } from "../firmware-ui.mjs";
+import { getHardwareArtifacts, makeFirmwareOperationReceipt } from "../firmware-ui.mjs";
 import { loadFirmwareManifest } from "../firmware-manifest.mjs";
 
 test("test bench is collapsed and explains laptop-local USB flashing", async () => {
@@ -15,9 +15,8 @@ test("test bench is collapsed and explains laptop-local USB flashing", async () 
 
 test("catalog contains only the canonical Dig2Go hardware artifact", async () => {
 	const manifest = await loadFirmwareManifest();
-	const catalog = classifyFirmwareCatalog(manifest);
-	assert.deepEqual(catalog.hardwareTargets.map((variant) => variant.id), ["previous-stable-control"]);
-	assert.equal(catalog.parkedExperiments.length, 0);
+	const artifacts = getHardwareArtifacts(manifest);
+	assert.deepEqual(artifacts.map((variant) => variant.id), ["previous-stable-control"]);
 });
 
 test("firmware receipt is prepared-not-written and independent of participant plan", async () => {
@@ -41,7 +40,7 @@ test("participant step sequence remains Controller to Lights to Power to Review"
 
 test("client offers direct laptop flash while preserving downloads", async () => {
 	const source = await readFile(new URL("../app.mjs", import.meta.url), "utf8");
-	assert.match(source, /classifyFirmwareCatalog\(manifest\)/);
+	assert.match(source, /getHardwareArtifacts\(manifest\)/);
 	assert.match(source, /Download complete USB image/);
 	assert.match(source, /Download HTTP OTA app image/);
 	assert.match(source, /Flash from this laptop/);
@@ -52,7 +51,7 @@ test("Easy Flash presents firmware as hardware and software profiles as deferred
 	const html = await readFile(new URL("../index.html", import.meta.url), "utf8");
 	assert.match(html, /Hardware firmware/);
 	assert.match(html, /Software profiles are waiting for Steve’s split-packet contract/);
-	assert.match(html, /Parked behavior-firmware experiments/);
+	assert.doesNotMatch(html, /Parked behavior-firmware experiments/);
 	assert.doesNotMatch(html, /SEVEN HARDWARE TARGETS/);
 });
 
