@@ -105,6 +105,28 @@ Existing v12/v13 nodes understand the legacy version action and `WLED-UPDATE` HT
 
 Use only proven legacy behavior to wake/bootstrap old devices. Keep richer selection, leases, deduplication, compatibility checks, receipts, and baton handoff in current firmware/tooling.
 
+### Migration corpus and configuration gate
+
+`migration-fixtures/manifest.json` pins stock WLED 14/15/16, reconstructed
+Tubes v13, and canonical Tubes v14 inputs for host-side migration tests. Old
+stock images and the reconstructed v13 image are source fixtures only; they
+must never become automatic installation candidates.
+
+Migration order is mandatory:
+
+```text
+inspect and classify exact hardware + installed lineage
+→ back up configuration and persistent Tubes state
+→ install the exact hardware firmware when required
+→ reboot and verify destination firmware identity + health
+→ apply only configuration supported by that verified firmware
+→ read back effective configuration
+```
+
+No peer or installer may send a new configuration schema merely because the
+old device reports WLED 16. Configuration eligibility begins only after the
+destination Tubes firmware has booted and passed the health gate.
+
 ### Initial concurrency model
 
 Start sequentially:

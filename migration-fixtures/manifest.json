@@ -1,0 +1,165 @@
+{
+  "schemaVersion": 1,
+  "target": {
+    "hardwareTargetId": "dig2go-classic-esp32-4mb-dio",
+    "destinationFixtureId": "tubes-v14-dig2go",
+    "configurationSchema": 2,
+    "ordering": [
+      "backup-configuration",
+      "install-firmware-if-needed",
+      "verify-firmware",
+      "apply-configuration",
+      "verify-configuration"
+    ]
+  },
+  "fixtures": [
+    {
+      "id": "stock-wled-14-esp32",
+      "lineage": "stock-wled",
+      "major": 14,
+      "version": "0.14.4",
+      "source": {
+        "repository": "wled/WLED",
+        "releaseTag": "v0.14.4",
+        "commit": "2f6f0d2f3e3ca7c016d7f507a9a5433564484de0",
+        "asset": "WLED_0.14.4_ESP32.bin"
+      },
+      "hardwareEvidence": "generic-classic-esp32-release-asset",
+      "installPolicy": "migration-source-only",
+      "artifact": {
+        "path": "migration-fixtures/firmware/stock-wled/WLED_0.14.4_ESP32.bin",
+        "sizeBytes": 1284976,
+        "sha256": "69fcec5b38174d647039a1e50629eb0b672af6ac4721ebd41c4e3415e3efabab"
+      }
+    },
+    {
+      "id": "stock-wled-15-esp32",
+      "lineage": "stock-wled",
+      "major": 15,
+      "version": "0.15.4",
+      "source": {
+        "repository": "wled/WLED",
+        "releaseTag": "v0.15.4",
+        "commit": "9af566ff877fe2f478ec5e4ba3b0940e5a83cd77",
+        "asset": "WLED_0.15.4_ESP32.bin"
+      },
+      "hardwareEvidence": "generic-classic-esp32-release-asset",
+      "installPolicy": "migration-source-only",
+      "artifact": {
+        "path": "migration-fixtures/firmware/stock-wled/WLED_0.15.4_ESP32.bin",
+        "sizeBytes": 1366832,
+        "sha256": "ded7a55f45b1c4906abe37b0848a35f70e70744c68b7ad78af4b34aecda6875b"
+      }
+    },
+    {
+      "id": "stock-wled-16-esp32",
+      "lineage": "stock-wled",
+      "major": 16,
+      "version": "16.0.1",
+      "source": {
+        "repository": "wled/WLED",
+        "releaseTag": "v16.0.1",
+        "commit": "29b389df1c1aaec6ff53aea742d17063b985906c",
+        "asset": "WLED_16.0.1_ESP32.bin"
+      },
+      "hardwareEvidence": "generic-classic-esp32-release-asset",
+      "installPolicy": "migration-source-only",
+      "artifact": {
+        "path": "migration-fixtures/firmware/stock-wled/WLED_16.0.1_ESP32.bin",
+        "sizeBytes": 1304720,
+        "sha256": "628917b0753edcfc9a8408e6387c6d1ace6a360d315441e9563d60299fef8594"
+      }
+    },
+    {
+      "id": "tubes-v13-dig2go-reconstructed",
+      "lineage": "tubes",
+      "major": 13,
+      "version": "13",
+      "source": {
+        "repository": "SteveEisner/WLEDtubes",
+        "commit": "69f1bd8be708438bd4efe9711301c63604f26303",
+        "buildConfigurationCommit": "9e7d3c70",
+        "provenance": "reconstructed-build-not-historical-byte-exact",
+        "dependencyRepairs": [
+          "ESPAsyncWebServer pinned to upstream v2.2.1 tag",
+          "duplicate legacy arduinoFFT dependency removed; Tubes-pinned 419d7b0 retained"
+        ]
+      },
+      "hardwareEvidence": "reconstructed-dig2go-build-target",
+      "installPolicy": "migration-source-only",
+      "artifact": {
+        "path": "migration-fixtures/firmware/tubes-v13/tubes-v13-dig2go-reconstructed.bin",
+        "sizeBytes": 1300816,
+        "sha256": "d63f9ce9b4ad28e45bce888d290315129e2392aa444ad2d233a23e233abfdad9"
+      }
+    },
+    {
+      "id": "tubes-v14-dig2go",
+      "lineage": "tubes",
+      "major": 14,
+      "version": "14",
+      "source": {
+        "repository": "SteveEisner/WLEDtubes",
+        "commit": "c6522acef3e954b14aad30d6f687cdb99bd1624e",
+        "environment": "esp32_quinled_dig2go_tubes",
+        "releaseIdentity": "DIG2GO_TUBES"
+      },
+      "hardwareEvidence": "exact-dig2go-target-contract",
+      "installPolicy": "migration-destination",
+      "artifact": {
+        "path": "easy-flash/artifacts/previous-stable-control/ota/firmware.bin",
+        "sizeBytes": 1259392,
+        "sha256": "bf6dc2feedb1669361471e9cc2224b1b2b1ba0e15602e58258dfde4e41569f2d"
+      }
+    }
+  ],
+  "legacyOverrides": [
+    {
+      "id": "golden",
+      "compileDefine": "GOLDEN",
+      "legacyReleaseIdentity": "GOLDEN_TUBES",
+      "migrationDisposition": "runtime-profile",
+      "requiresExplicitIdentity": true,
+      "runtimeProfileId": "golden"
+    },
+    {
+      "id": "christmas",
+      "compileDefine": "CHRISTMAS",
+      "legacyReleaseIdentity": "CHRISTMAS_TUBES",
+      "migrationDisposition": "runtime-profile",
+      "requiresExplicitIdentity": true,
+      "runtimeProfileId": "christmas"
+    },
+    {
+      "id": "ruby",
+      "compileDefine": "RUBY",
+      "legacyReleaseIdentity": null,
+      "migrationDisposition": "runtime-profile",
+      "requiresExplicitIdentity": true,
+      "runtimeProfileId": "ruby"
+    },
+    {
+      "id": "mauve",
+      "compileDefine": "MAUVE",
+      "legacyReleaseIdentity": null,
+      "migrationDisposition": "runtime-profile",
+      "requiresExplicitIdentity": true,
+      "runtimeProfileId": "mauve"
+    },
+    {
+      "id": "master",
+      "compileDefine": "MASTER",
+      "legacyReleaseIdentity": null,
+      "migrationDisposition": "runtime-profile",
+      "requiresExplicitIdentity": true,
+      "runtimeProfileId": "master"
+    },
+    {
+      "id": "homelight",
+      "compileDefine": "HOMELIGHT",
+      "legacyReleaseIdentity": "ESP32_HOMELIGHT",
+      "migrationDisposition": "distinct-hardware-target",
+      "requiresExplicitIdentity": true
+    }
+  ]
+}
