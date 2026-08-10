@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "profile": {
+    "board": "QuinLED Dig2Go",
+    "lights": "Steve-style 2 m tube",
+    "power": "Medium"
+  },
+  "resolved": {
+    "firmwareTarget": "esp32_quinled_dig2go_tubes",
+    "firmwareRelease": "DIG2GO_TUBES",
+    "gpio": 16,
+    "stripType": "SK6812 RGBW (confirm)",
+    "colorOrder": "GRBW",
+    "logicalPixelCount": 60,
+    "geometry": "Paired front/back; 60 logical addresses (120 physical packages)",
+    "currentLimitMilliamps": 1000
+  },
+  "artifact": {
+    "status": "local-build-unverified",
+    "expectedTargetFromBuildDirectory": "esp32_quinled_dig2go_tubes",
+    "releaseIdentity": "unverified — file location is not identity evidence",
+    "sourceIdentity": "unverified",
+    "sizeBytes": 1257280,
+    "sha256": "5fff10ff1e9d9ac0abb9732a874786d1c8d16bd4458ea11b72f24d875a18b5f6",
+    "kind": "application image only — not a complete recovery image"
+  },
+  "mode": "simulated-dry-run",
+  "createdAt": "2026-08-06T06:03:43.000Z",
+  "result": "SIMULATED — no firmware written and no runtime settings applied"
+}
