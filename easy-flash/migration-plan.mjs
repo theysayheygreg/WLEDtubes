@@ -6,7 +6,9 @@ export function planMigration(source, target) {
 	if (source.hardwareTargetId !== target.hardwareTargetId) {
 		return { status: "blocked", reason: "The selected migration artifact does not match this hardware target.", steps: [] };
 	}
-	if (source.firmwareVariant && source.firmwareVariant !== "standard") {
+	if (source.firmwareVariant && source.firmwareVariant !== "standard"
+		&& (!source.variantMigrationProfileId
+			|| source.variantMigrationProfileId !== target.runtimeProfileId)) {
 		return { status: "blocked", reason: "A variant migration profile is required before replacing special legacy firmware.", steps: [] };
 	}
 	if (!((source.lineage === "stock-wled" && [14, 15, 16].includes(source.major))
@@ -15,6 +17,9 @@ export function planMigration(source, target) {
 	}
 
 	const steps = [{ operation: "backup-configuration" }];
+	if (source.requiresExplicitBusBeforeFirmware) {
+		steps.push({ operation: "normalize-hardware-output", scope: "explicit-led-bus-only" });
+	}
 	const alreadyOnTarget = source.lineage === "tubes"
 		&& source.major === 14
 		&& source.firmwareFixtureId === target.firmwareFixtureId;
@@ -26,6 +31,7 @@ export function planMigration(source, target) {
 		operation: "apply-configuration",
 		configurationSchema: target.configurationSchema,
 		minimumVerifiedFirmwareFixtureId: target.firmwareFixtureId,
+		runtimeProfileId: target.runtimeProfileId || null,
 	});
 	steps.push({ operation: "verify-configuration", configurationSchema: target.configurationSchema });
 	return { status: "ready", steps };

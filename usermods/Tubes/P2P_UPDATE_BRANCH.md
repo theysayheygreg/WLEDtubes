@@ -117,14 +117,17 @@ Migration order is mandatory:
 ```text
 inspect and classify exact hardware + installed lineage
 → back up configuration and persistent Tubes state
+→ if required, normalize only the explicit hardware output bus
 → install the exact hardware firmware when required
 → reboot and verify destination firmware identity + health
 → apply only configuration supported by that verified firmware
 → read back effective configuration
 ```
 
-No peer or installer may send a new configuration schema merely because the
-old device reports WLED 16. Configuration eligibility begins only after the
+The optional preflash transform is limited to making the LED bus explicit when
+newer base firmware could otherwise boot with unsafe fallback geometry. No peer
+or installer may send a new runtime configuration schema merely because the old
+device reports WLED 16. Full configuration eligibility begins only after the
 destination Tubes firmware has booted and passed the health gate.
 
 ### Initial concurrency model
