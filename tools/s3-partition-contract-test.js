@@ -109,6 +109,11 @@ test('peripheral smoke environment is offline and documentation retains the firs
 	assert.doesNotMatch([].concat(env.custom_usermods).join(' '), /\bTubes\b/);
 
 	const readme = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/README.md'), 'utf8');
+	const source = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+	assert.match(source, /constexpr int16_t DISPLAY_WIDTH = 480;/);
+	assert.match(source, /constexpr int16_t DISPLAY_HEIGHT = 480;/);
+	assert.match(readme, /CO5300 480 x 480 AMOLED/i);
+	assert.match(readme, /CST9217 480 x 480 touch/i);
 	assert.match(readme, /initializes those four peripherals/i);
 	assert.match(readme, /cannot join or relay the mesh/i);
 	assert.match(readme, /must not be flashed before factory preservation/i);

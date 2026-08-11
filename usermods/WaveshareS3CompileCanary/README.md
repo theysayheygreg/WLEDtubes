@@ -3,9 +3,9 @@
 This board-local smoke usermod assumes the board has 16 MB QIO flash at 80 MHz and 8 MB
 OPI PSRAM (`qio_opi`), with native USB CDC enabled at boot. Peripheral pin assumptions:
 
-- CO5300 AMOLED QSPI: CS 12, SCLK 38, SDIO0..3 4/5/6/7, reset 39
+- CO5300 480 x 480 AMOLED QSPI: CS 12, SCLK 38, SDIO0..3 4/5/6/7, reset 39
 - Shared I2C: SDA 15, SCL 14
-- CST92xx touch: IRQ 11, reset 40
+- CST9217 480 x 480 touch: IRQ 11, reset 40
 - QMI8658 IMU and AXP2101-compatible PMU on the shared I2C bus
 
 At boot it initializes those four peripherals, presents live status on the AMOLED, and mirrors
@@ -15,7 +15,8 @@ and version strings plus compile time so a photographed smoke result identifies 
 
 The smoke surface does not initialize a physical LED bus and does not add an ESP-NOW send
 path. Build the dedicated `esp32-s3-waveshare-tubes-remote` environment; it deliberately omits
-the Tubes usermod so the resulting offline smoke artifact cannot join or relay the mesh. These
-pin and geometry contracts still require confirmation against the physical board and vendor
+the Tubes usermod so the resulting offline smoke artifact cannot join or relay the mesh. The
+controller and geometry contract is reconstructed from the preserved factory application;
+the remaining pin contracts still require confirmation against the physical board and vendor
 schematic. The compiled firmware must not be flashed before factory preservation, an exact
 write/restore preview, and Greg's explicit approval.
