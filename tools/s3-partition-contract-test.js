@@ -91,6 +91,7 @@ test('Waveshare effective environment has unique artifact identity, one enabled 
 	assert.doesNotMatch(flags, /WLED_RELEASE_NAME=\\\"ESP32-S3_16MB_opi\\\"/);
 	assert.equal((flags.match(/ARDUINO_USB_CDC_ON_BOOT=1/g) || []).length, 1);
 	assert.doesNotMatch(flags, /ARDUINO_USB_CDC_ON_BOOT=0/);
+	assert.match(flags, /TUBES_S3_FIELD_OS/);
 	const dependencies = [].concat(env.lib_deps).join('\n');
 	for (const sha of ['3cc08c4e9ab6d85807e49b657d73fae10871616e', 'eb462146d537a8103c0f680d2b4d78cde4fc8529', 'f142ed8356333357fa9cb0873392112907e8a578']) assert.match(dependencies, new RegExp(sha));
 	for (const library of ['Arduino_GFX', 'SensorLib', 'XPowersLib'])
@@ -107,6 +108,7 @@ test('peripheral smoke environment is offline and documentation retains the firs
 	assert.ok(env, 'missing offline S3 peripheral smoke environment');
 	assert.equal([].concat(env.custom_usermods).join(' ').trim(), 'WaveshareS3CompileCanary');
 	assert.doesNotMatch([].concat(env.custom_usermods).join(' '), /\bTubes\b/);
+	assert.match([].concat(env.build_unflags).join(' '), /TUBES_S3_FIELD_OS/);
 
 	const readme = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/README.md'), 'utf8');
 	const source = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');

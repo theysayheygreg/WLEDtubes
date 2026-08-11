@@ -17,6 +17,14 @@ before any transport constructor can run. Future AMOLED preview code can read
 the rendered frame through the existing `BusManager::getBus()` and
 `Bus::getPixelColor()` interfaces.
 
+The S3 field-OS build now boots to four fixed touchscreen destinations:
+Conductor, Surveyor, Anchor, and Updater. Conductor reads the rendered frame
+and live Tubes state through a narrow fixed-size API. Its Next control invokes
+the existing master `force_next()` path, and its authority control persists the
+existing `MasterRole` boundary before reboot. Surveyor reads the bounded peer
+telemetry table. Anchor and Updater state their unavailable capabilities
+without creating coordinates, artifacts, or a second update transport.
+
 IDs 24 and above still execute WLED's real effect engine and are cross-faded by
 the existing Tubes controller; they are not substituted with fake patterns.
 This is compile-tested on the pinned WLED 16 / Arduino-ESP32 2 stack. Until an
