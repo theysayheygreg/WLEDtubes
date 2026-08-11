@@ -1,5 +1,19 @@
 #ifdef WAVESHARE_S3_TUBES_REMOTE
 
+#include "wled.h"
+
+#undef BLACK
+#undef BLUE
+#undef GREEN
+#undef CYAN
+#undef RED
+#undef MAGENTA
+#undef YELLOW
+#undef WHITE
+#undef ORANGE
+#undef PURPLE
+#undef DARKGREY
+
 #include <Arduino_GFX_Library.h>
 #include <SensorQMI8658.hpp>
 #include <touch/TouchDrvCST92xx.h>
@@ -18,25 +32,158 @@ constexpr int8_t PERIPHERAL_SDA = 15;
 constexpr int8_t PERIPHERAL_SCL = 14;
 constexpr int8_t TOUCH_IRQ = 11;
 constexpr int8_t TOUCH_RESET = 40;
-}
+constexpr int16_t DISPLAY_WIDTH = 410;
+constexpr int16_t DISPLAY_HEIGHT = 502;
+constexpr uint32_t SAMPLE_INTERVAL_MS = 500;
+constexpr uint8_t SMOKE_DEFAULT_BRIGHTNESS = 160;
+constexpr uint8_t BRIGHTNESS_STEP = 32;
 
-// Compile/link canary only. This function is intentionally never called in this slice.
-extern "C" void waveshareS3PeripheralCompileCanary() {
-  Arduino_ESP32QSPI displayBus(DISPLAY_CS, DISPLAY_SCLK, DISPLAY_SDIO0, DISPLAY_SDIO1,
-                               DISPLAY_SDIO2, DISPLAY_SDIO3);
-  Arduino_CO5300 display(&displayBus, DISPLAY_RESET);
-  TouchDrvCST92xx touch;
-  SensorQMI8658 imu;
-  XPowersPMU pmu;
-  (void)display;
-  (void)touch;
-  (void)imu;
-  (void)pmu;
-  (void)PERIPHERAL_SDA;
-  (void)PERIPHERAL_SCL;
-  (void)TOUCH_IRQ;
-  (void)TOUCH_RESET;
-}
+Arduino_ESP32QSPI displayBus(DISPLAY_CS, DISPLAY_SCLK, DISPLAY_SDIO0, DISPLAY_SDIO1,
+                             DISPLAY_SDIO2, DISPLAY_SDIO3);
+Arduino_CO5300 display(&displayBus, DISPLAY_RESET, 0, false, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+TouchDrvCST92xx touch;
+SensorQMI8658 imu;
+XPowersPMU pmu;
+
+class WaveshareS3PeripheralSmoke : public Usermod {
+private:
+  bool displayReady = false;
+  bool touchReady = false;
+  bool pmuReady = false;
+  bool imuReady = false;
+  bool touchLatched = false;
+  uint8_t displayBrightness = SMOKE_DEFAULT_BRIGHTNESS;
+  uint32_t lastSample = 0;
+  int16_t touchX = -1;
+  int16_t touchY = -1;
+  uint16_t batteryMv = 0;
+  bool usbPresent = false;
+  bool charging = false;
+  float accelX = 0.0f;
+  float accelY = 0.0f;
+  float accelZ = 0.0f;
+
+  // Samples only board-local peripherals and never enters a Tubes transport path.
+  void samplePeripherals() {
+    if (pmuReady) {
+      batteryMv = pmu.getBattVoltage();
+      usbPresent = pmu.isVbusIn();
+      charging = pmu.isCharging();
+    }
+
+    if (imuReady) imu.getAccelerometer(accelX, accelY, accelZ);
+
+    if (!touchReady) return;
+    int16_t x = -1;
+    int16_t y = -1;
+    const bool pressed = digitalRead(TOUCH_IRQ) == LOW && touch.getPoint(&x, &y, 1) > 0;
+    if (pressed) {
+      touchX = x;
+      touchY = y;
+      if (!touchLatched) {
+        if (x < DISPLAY_WIDTH / 2 && displayBrightness > BRIGHTNESS_STEP) {
+          displayBrightness -= BRIGHTNESS_STEP;
+        } else if (x >= DISPLAY_WIDTH / 2 && displayBrightness < 255 - BRIGHTNESS_STEP) {
+          displayBrightness += BRIGHTNESS_STEP;
+        } else {
+          displayBrightness = x < DISPLAY_WIDTH / 2 ? 1 : 255;
+        }
+        if (displayReady) display.setBrightness(displayBrightness);
+      }
+    }
+    touchLatched = pressed;
+  }
+
+  // Paints a stable diagnostic surface intended for first hardware bring-up.
+  void drawStatus() {
+    if (!displayReady) return;
+
+    display.fillScreen(RGB565_BLACK);
+    display.setCursor(12, 14);
+    display.setTextColor(RGB565_CYAN);
+    display.setTextSize(2);
+    display.println(F("WLEDTubes S3 smoke"));
+    display.setTextColor(RGB565_WHITE);
+    display.setTextSize(1);
+    display.printf("%s\n%s\nBuilt %s %s\n\n", releaseString, versionString, __DATE__, __TIME__);
+    display.printf("Display: OK  brightness %u\n", displayBrightness);
+    display.printf("Touch:   %s  x %d  y %d\n", touchReady ? "OK" : "FAIL", touchX, touchY);
+    display.printf("PMU:     %s  battery %u mV\n", pmuReady ? "OK" : "FAIL", batteryMv);
+    display.printf("USB:     %s  charge %s\n", usbPresent ? "YES" : "NO", charging ? "YES" : "NO");
+    display.printf("IMU:     %s\n", imuReady ? "OK" : "FAIL");
+    display.printf("Accel:   %+.2f  %+.2f  %+.2f g\n\n", accelX, accelY, accelZ);
+    display.setTextColor(RGB565_YELLOW);
+    display.println(F("Touch left/right: brightness -/+"));
+    display.println(F("No LED output. No smoke-test radio TX."));
+  }
+
+public:
+  void setup() override {
+    Wire.begin(PERIPHERAL_SDA, PERIPHERAL_SCL);
+
+    displayReady = display.begin();
+    if (displayReady) {
+      display.setBrightness(displayBrightness);
+      display.setTextWrap(false);
+    }
+
+    pinMode(TOUCH_RESET, OUTPUT);
+    digitalWrite(TOUCH_RESET, LOW);
+    delay(10);
+    digitalWrite(TOUCH_RESET, HIGH);
+    delay(50);
+    pinMode(TOUCH_IRQ, INPUT_PULLUP);
+    touchReady = touch.begin(Wire, CST92XX_SLAVE_ADDRESS, PERIPHERAL_SDA, PERIPHERAL_SCL);
+    if (touchReady) touch.setMaxCoordinates(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+
+    pmuReady = pmu.begin(Wire, AXP2101_SLAVE_ADDRESS, PERIPHERAL_SDA, PERIPHERAL_SCL);
+    if (pmuReady) {
+      pmu.enableBattVoltageMeasure();
+      pmu.enableVbusVoltageMeasure();
+    }
+
+    imuReady = imu.begin(Wire, QMI8658_L_SLAVE_ADDRESS, PERIPHERAL_SDA, PERIPHERAL_SCL);
+    if (imuReady) {
+      imu.configAccelerometer(SensorQMI8658::ACC_RANGE_2G, SensorQMI8658::ACC_ODR_31_25Hz);
+      imu.enableAccelerometer();
+    }
+
+    samplePeripherals();
+    drawStatus();
+  }
+
+  void loop() override {
+    const uint32_t now = millis();
+    if (now - lastSample < SAMPLE_INTERVAL_MS) return;
+    lastSample = now;
+    samplePeripherals();
+    drawStatus();
+  }
+
+  void addToJsonInfo(JsonObject &root) override {
+    JsonObject user = root[F("u")];
+    if (user.isNull()) user = root.createNestedObject(F("u"));
+    JsonArray smoke = user.createNestedArray(F("S3 peripheral smoke"));
+    smoke.add(displayReady ? F("display OK") : F("display FAIL"));
+    smoke.add(touchReady ? F("touch OK") : F("touch FAIL"));
+    smoke.add(pmuReady ? F("PMU OK") : F("PMU FAIL"));
+    smoke.add(imuReady ? F("IMU OK") : F("IMU FAIL"));
+
+    JsonArray battery = user.createNestedArray(F("S3 battery"));
+    battery.add(batteryMv);
+    battery.add(F(" mV"));
+    JsonArray power = user.createNestedArray(F("S3 power"));
+    power.add(usbPresent ? F("USB") : F("battery"));
+    power.add(charging ? F(", charging") : F(""));
+  }
+};
+
+static WaveshareS3PeripheralSmoke waveshareS3PeripheralSmoke;
+REGISTER_USERMOD(waveshareS3PeripheralSmoke);
+} // namespace
+
+// Kept as a forced-link anchor for the board-specific PlatformIO environment.
+extern "C" void waveshareS3PeripheralCompileCanary() {}
 // AI: end
 
 #endif

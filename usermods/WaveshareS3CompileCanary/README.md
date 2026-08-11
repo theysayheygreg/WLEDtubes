@@ -1,6 +1,6 @@
-# Waveshare ESP32-S3-Touch-AMOLED-2.16 assumptions
+# Waveshare ESP32-S3-Touch-AMOLED-2.16 peripheral smoke
 
-This compile-only target assumes the board has 16 MB QIO flash at 80 MHz and 8 MB
+This board-local smoke usermod assumes the board has 16 MB QIO flash at 80 MHz and 8 MB
 OPI PSRAM (`qio_opi`), with native USB CDC enabled at boot. Peripheral pin assumptions:
 
 - CO5300 AMOLED QSPI: CS 12, SCLK 38, SDIO0..3 4/5/6/7, reset 39
@@ -8,7 +8,14 @@ OPI PSRAM (`qio_opi`), with native USB CDC enabled at boot. Peripheral pin assum
 - CST92xx touch: IRQ 11, reset 40
 - QMI8658 IMU and AXP2101-compatible PMU on the shared I2C bus
 
-These are integration assumptions only. They require read-only confirmation against the
-physical board and vendor schematic after hardware arrives. The canary itself performs no
-initialization and does not write to hardware. The compiled WLED firmware is executable and
-must not be flashed before the hardware gates are complete.
+At boot it initializes those four peripherals, presents live status on the AMOLED, and mirrors
+the basic health and power readings in WLED's JSON info. A new touch on the left or right half
+of the screen decreases or increases AMOLED brightness. The display includes the WLED release
+and version strings plus compile time so a photographed smoke result identifies its firmware.
+
+The smoke surface does not initialize a physical LED bus and does not add an ESP-NOW send
+path. Build the dedicated `esp32-s3-waveshare-tubes-remote` environment; it deliberately omits
+the Tubes usermod so the resulting offline smoke artifact cannot join or relay the mesh. These
+pin and geometry contracts still require confirmation against the physical board and vendor
+schematic. The compiled firmware must not be flashed before factory preservation, an exact
+write/restore preview, and Greg's explicit approval.
