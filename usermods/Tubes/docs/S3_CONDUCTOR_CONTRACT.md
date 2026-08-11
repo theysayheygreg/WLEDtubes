@@ -2,6 +2,10 @@
 
 The future S3 conductor is a **full logical Tubes node** with **no physical LED output**. It participates in election, timing, scheduling, state generation, and relay behavior as a conductor while rendering only to a virtual strip. M0 documents and freezes compatibility; it does not add an S3 build or implementation.
 
+The product direction is now the Tubes-first field OS described in
+`S3_FIELD_OS.md`: one persistent Tubes core with Conductor, Surveyor, Anchor,
+and Updater workspaces.
+
 ## M1B implementation
 
 `waveshare_s3_tubes_remote` defines `TUBES_NULL_OUTPUT` and renders 60 logical

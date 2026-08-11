@@ -56,6 +56,19 @@ test('mobile conductor route selection is host-testable', () => {
 	}
 });
 
+test('peer RSSI telemetry is bounded and host-testable', () => {
+	const output = path.join(process.env.TMPDIR || '/tmp', `tubes-peer-telemetry-${process.pid}`);
+	try {
+		const result = spawnSync('c++', ['-std=c++11', '-Wall', '-Wextra', '-Werror', '-I.',
+			'tools/tubes_peer_telemetry_test.cpp', '-o', output], {cwd: root, encoding: 'utf8'});
+		assert.equal(result.status, 0, result.stderr || result.stdout);
+		const run = spawnSync(output, [], {encoding: 'utf8'});
+		assert.equal(run.status, 0, run.stderr || run.stdout);
+	} finally {
+		fs.rmSync(output, {force: true});
+	}
+});
+
 test('firmware matrix flags are isolated and release names are distinct', () => {
 	const ini = fs.readFileSync(path.join(root, 'platformio_tubes.ini'), 'utf8');
 	const expected = {

@@ -4,6 +4,7 @@
 #include "global_state.h"
 #include "espnow_broadcast.h"
 #include "node_message.h"
+#include "peer_telemetry.h"
 #if defined(TUBES_ENABLE_SPATIAL_PATTERNS) || defined(TUBES_ENABLE_MOBILE_CONDUCTOR)
 #include "mobile_conductor_route.h"
 #endif
@@ -47,6 +48,7 @@ class LightNode {
 
     MessageReceiver *receiver;
     MeshNodeHeader header;
+    PeerTelemetry peerTelemetry;
 
     typedef enum{
         NODE_STATUS_QUIET=0,
@@ -164,6 +166,7 @@ class LightNode {
     void onPeerData(const uint8_t* address, const NodeMessage* message, uint8_t len, signed int rssi, bool broadcast) {
         // Track that another node exists, updating this node's understanding of the mesh.
         onPeerPing(message->header);
+        peerTelemetry.observe(message->header.id, message->header.uplinkId, static_cast<int8_t>(rssi), millis());
 
         bool ignore = false;
         switch (message->recipients) {
