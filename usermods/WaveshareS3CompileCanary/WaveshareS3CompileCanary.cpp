@@ -42,6 +42,12 @@ constexpr uint32_t SAMPLE_INTERVAL_MS = 500;
 constexpr uint8_t SMOKE_DEFAULT_BRIGHTNESS = 160;
 constexpr uint8_t BRIGHTNESS_STEP = 32;
 
+volatile bool touchInterruptPending = false;
+
+void IRAM_ATTR handleTouchInterrupt() {
+  touchInterruptPending = true;
+}
+
 Arduino_ESP32QSPI displayBus(DISPLAY_CS, DISPLAY_SCLK, DISPLAY_SDIO0, DISPLAY_SDIO1,
                              DISPLAY_SDIO2, DISPLAY_SDIO3);
 Arduino_CO5300 display(&displayBus, DISPLAY_RESET, 0, false, DISPLAY_WIDTH, DISPLAY_HEIGHT);
@@ -62,7 +68,6 @@ class WaveshareS3FieldOs : public Usermod {
 private:
   bool displayReady = false;
   bool touchReady = false;
-  bool touchLatched = false;
   FieldScreen screen = FieldScreen::Home;
   uint32_t lastDraw = 0;
 
@@ -241,17 +246,20 @@ public:
     delay(50);
     pinMode(TOUCH_IRQ, INPUT_PULLUP);
     touchReady = touch.begin(Wire, CST92XX_SLAVE_ADDRESS, PERIPHERAL_SDA, PERIPHERAL_SCL);
-    if (touchReady) touch.setMaxCoordinates(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    if (touchReady) {
+      touch.setMaxCoordinates(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+      touchInterruptPending = false;
+      attachInterrupt(TOUCH_IRQ, handleTouchInterrupt, FALLING);
+    }
     draw();
   }
 
   void loop() override {
-    if (touchReady) {
+    if (touchReady && touchInterruptPending) {
+      touchInterruptPending = false;
       int16_t x = -1;
       int16_t y = -1;
-      const bool pressed = digitalRead(TOUCH_IRQ) == LOW && touch.getPoint(&x, &y, 1) > 0;
-      if (pressed && !touchLatched) onTouch(x, y);
-      touchLatched = pressed;
+      if (touch.getPoint(&x, &y, 1) > 0) onTouch(x, y);
     }
     const uint32_t now = millis();
     if (now - lastDraw >= SAMPLE_INTERVAL_MS) {
@@ -279,7 +287,6 @@ private:
   bool touchReady = false;
   bool pmuReady = false;
   bool imuReady = false;
-  bool touchLatched = false;
   uint8_t displayBrightness = SMOKE_DEFAULT_BRIGHTNESS;
   uint32_t lastSample = 0;
   int16_t touchX = -1;
@@ -301,25 +308,26 @@ private:
 
     if (imuReady) imu.getAccelerometer(accelX, accelY, accelZ);
 
-    if (!touchReady) return;
+  }
+
+  // Consumes the CST9217's falling-edge notification before its short IRQ pulse is lost.
+  void sampleTouch() {
+    if (!touchReady || !touchInterruptPending) return;
+    touchInterruptPending = false;
     int16_t x = -1;
     int16_t y = -1;
-    const bool pressed = digitalRead(TOUCH_IRQ) == LOW && touch.getPoint(&x, &y, 1) > 0;
-    if (pressed) {
+    if (touch.getPoint(&x, &y, 1) > 0) {
       touchX = x;
       touchY = y;
-      if (!touchLatched) {
-        if (x < DISPLAY_WIDTH / 2 && displayBrightness > BRIGHTNESS_STEP) {
-          displayBrightness -= BRIGHTNESS_STEP;
-        } else if (x >= DISPLAY_WIDTH / 2 && displayBrightness < 255 - BRIGHTNESS_STEP) {
-          displayBrightness += BRIGHTNESS_STEP;
-        } else {
-          displayBrightness = x < DISPLAY_WIDTH / 2 ? 1 : 255;
-        }
-        if (displayReady) display.setBrightness(displayBrightness);
+      if (x < DISPLAY_WIDTH / 2 && displayBrightness > BRIGHTNESS_STEP) {
+        displayBrightness -= BRIGHTNESS_STEP;
+      } else if (x >= DISPLAY_WIDTH / 2 && displayBrightness < 255 - BRIGHTNESS_STEP) {
+        displayBrightness += BRIGHTNESS_STEP;
+      } else {
+        displayBrightness = x < DISPLAY_WIDTH / 2 ? 1 : 255;
       }
+      if (displayReady) display.setBrightness(displayBrightness);
     }
-    touchLatched = pressed;
   }
 
   // Paints a stable diagnostic surface intended for first hardware bring-up.
@@ -391,7 +399,11 @@ public:
     delay(50);
     pinMode(TOUCH_IRQ, INPUT_PULLUP);
     touchReady = touch.begin(Wire, CST92XX_SLAVE_ADDRESS, PERIPHERAL_SDA, PERIPHERAL_SCL);
-    if (touchReady) touch.setMaxCoordinates(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+    if (touchReady) {
+      touch.setMaxCoordinates(DISPLAY_WIDTH, DISPLAY_HEIGHT);
+      touchInterruptPending = false;
+      attachInterrupt(TOUCH_IRQ, handleTouchInterrupt, FALLING);
+    }
 
     pmuReady = pmu.begin(Wire, AXP2101_SLAVE_ADDRESS, PERIPHERAL_SDA, PERIPHERAL_SCL);
     if (pmuReady) {
@@ -410,6 +422,7 @@ public:
   }
 
   void loop() override {
+    sampleTouch();
     const uint32_t now = millis();
     if (now - lastSample < SAMPLE_INTERVAL_MS) return;
     lastSample = now;
