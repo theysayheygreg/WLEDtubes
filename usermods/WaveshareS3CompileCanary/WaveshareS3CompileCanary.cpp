@@ -40,7 +40,6 @@ constexpr int16_t DISPLAY_WIDTH = 480;
 constexpr int16_t DISPLAY_HEIGHT = 480;
 constexpr uint32_t SAMPLE_INTERVAL_MS = 500;
 constexpr uint8_t SMOKE_DEFAULT_BRIGHTNESS = 160;
-constexpr uint8_t BRIGHTNESS_STEP = 32;
 
 volatile bool touchInterruptPending = false;
 
@@ -319,14 +318,6 @@ private:
     if (touch.getPoint(&x, &y, 1) > 0) {
       touchX = x;
       touchY = y;
-      if (x < DISPLAY_WIDTH / 2 && displayBrightness > BRIGHTNESS_STEP) {
-        displayBrightness -= BRIGHTNESS_STEP;
-      } else if (x >= DISPLAY_WIDTH / 2 && displayBrightness < 255 - BRIGHTNESS_STEP) {
-        displayBrightness += BRIGHTNESS_STEP;
-      } else {
-        displayBrightness = x < DISPLAY_WIDTH / 2 ? 1 : 255;
-      }
-      if (displayReady) display.setBrightness(displayBrightness);
     }
   }
 
@@ -377,7 +368,7 @@ private:
     display.setTextSize(1);
     display.setTextColor(RGB565_YELLOW);
     display.setCursor(12, 414);
-    display.println(F("TOUCH LEFT / RIGHT: BRIGHTNESS - / +"));
+    display.println(F("TOUCH: COORDINATES ONLY"));
     display.setCursor(12, 438);
     display.println(F("No LED output. No smoke-test radio TX."));
   }
