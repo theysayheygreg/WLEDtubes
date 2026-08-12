@@ -28,8 +28,20 @@ struct TubesS3PeerStatus {
   int8_t maximumRssi = 0;
 };
 
+struct TubesS3RouteStatus {
+  bool anchorEnabled = false;
+  bool routeValid = false;
+  uint8_t shell = 0xff;
+  uint16_t conductorId = 0;
+  uint16_t parentId = 0;
+  uint16_t routeCost = 0;
+  uint32_t sequence = 0;
+};
+
 bool tubesS3ReadStatus(TubesS3FieldStatus &status);
 bool tubesS3ReadPeer(size_t index, TubesS3PeerStatus &peer);
+bool tubesS3ReadRoute(TubesS3RouteStatus &route);
 bool tubesS3ForceNext();
 bool tubesS3SetMasterAuthority(bool enabled);
+bool tubesS3SetAnchorAuthority(bool enabled);
 // AI: end

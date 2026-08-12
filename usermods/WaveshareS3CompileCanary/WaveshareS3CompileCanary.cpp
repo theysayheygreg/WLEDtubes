@@ -153,17 +153,29 @@ private:
   }
 
   void drawAnchor() {
+    TubesS3FieldStatus status;
+    TubesS3RouteStatus route;
+    tubesS3ReadStatus(status);
+    tubesS3ReadRoute(route);
     title(F("Anchor"));
     drawBack();
     display.setTextColor(RGB565_WHITE);
     display.setTextSize(2);
-    display.setCursor(24, 105);
-    display.println(F("Spatial anchor controls are not enabled yet."));
+    display.setCursor(24, 90);
+    display.printf("Authority: %s\n", status.isMaster ? "MASTER" : "FOLLOWER");
+    display.printf("Anchor: %s\n", route.anchorEnabled ? "ORIGINATING" : "OFF");
+    if (route.routeValid) {
+      display.printf("Shell %u  conductor %03X\n", route.shell, route.conductorId);
+      display.printf("Parent %03X  cost %u\n", route.parentId, route.routeCost);
+    } else {
+      display.println(F("Shell unknown - no fresh route"));
+    }
     display.setTextSize(1);
-    display.setCursor(24, 175);
-    display.println(F("The current firmware has no trusted coordinates or ranging."));
-    display.println(F("This screen will expose proximity-anchor state only after"));
-    display.println(F("the existing mobile-conductor sidecar is integrated."));
+    display.setCursor(24, 245);
+    display.println(F("Proximity route only; no location or ranging is claimed."));
+    button(40, 325, 400, 100,
+           route.anchorEnabled ? RGB565_RED : status.isMaster ? RGB565_PURPLE : RGB565_DARKGREY,
+           route.anchorEnabled ? F("Disable anchor") : F("Enable anchor"));
   }
 
   void drawUpdater() {
@@ -205,6 +217,10 @@ private:
       tubesS3ReadStatus(status);
       if (x < 240) tubesS3ForceNext();
       else tubesS3SetMasterAuthority(!status.isMaster);
+    } else if (screen == FieldScreen::Anchor && y >= 310) {
+      TubesS3RouteStatus route;
+      tubesS3ReadRoute(route);
+      tubesS3SetAnchorAuthority(!route.anchorEnabled);
     }
     draw();
     lastDraw = millis();

@@ -45,6 +45,7 @@ class TubesUsermod : public Usermod {
     Master master = Master(controller);
     bool isLegacy = false;
     bool checkedLedSegments = false;
+    bool s3AnchorAuthority = false;
     bool otaSuspended = false;
     TubesExperiment::ExperimentOverlay experimentOverlay;
 #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
@@ -157,6 +158,28 @@ class TubesUsermod : public Usermod {
       return true;
     }
 
+    bool readS3Route(TubesS3RouteStatus &route) {
+#if defined(TUBES_ENABLE_SPATIAL_PATTERNS) && defined(TUBES_ENABLE_MOBILE_CONDUCTOR)
+      route.anchorEnabled = s3AnchorAuthority;
+      route.routeValid = controller.node.hasMobileRoute();
+      route.shell = controller.node.mobileRouteShell();
+      if (s3AnchorAuthority) {
+        route.conductorId = controller.node.header.id;
+        route.parentId = controller.node.header.id;
+        route.routeCost = 0;
+        return true;
+      }
+      if (!controller.node.mobileRoute.valid(millis())) return true;
+      route.conductorId = controller.node.mobileRoute.conductorId();
+      route.parentId = controller.node.mobileRoute.parentId();
+      route.routeCost = controller.node.mobileRoute.cost();
+      route.sequence = controller.node.mobileRoute.sequence();
+      return true;
+#else
+      return false;
+#endif
+    }
+
     bool s3ForceNext() {
       if (!controller.isMasterRole()) return false;
       controller.force_next();
@@ -165,8 +188,20 @@ class TubesUsermod : public Usermod {
 
     bool s3SetMasterAuthority(bool enabled) {
       if (controller.isMasterRole() == enabled) return true;
+      if (!enabled) s3SetAnchorAuthority(false);
       controller.setRole(enabled ? MasterRole : DefaultRole);
       return true;
+    }
+
+    bool s3SetAnchorAuthority(bool enabled) {
+#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
+      if (enabled && !controller.isMasterRole()) return false;
+      s3AnchorAuthority = enabled;
+      controller.node.setMobileConductorAuthority(enabled);
+      return true;
+#else
+      return false;
+#endif
     }
     // AI: end
 
@@ -194,6 +229,10 @@ class TubesUsermod : public Usermod {
       // Start timing
       globalTimer.setup();
       controller.setup();
+#ifdef TUBES_S3_FIELD_OS
+      // Anchor transmission is an explicit field action, never a boot default.
+      s3SetAnchorAuthority(false);
+#endif
       if (controller.isMasterRole()) {
 #ifndef TUBES_S3_FIELD_OS
         master.setup();

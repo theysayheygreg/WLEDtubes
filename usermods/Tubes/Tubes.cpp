@@ -13,11 +13,19 @@ bool tubesS3ReadPeer(size_t index, TubesS3PeerStatus &peer) {
   return tubes.readS3Peer(index, peer);
 }
 
+bool tubesS3ReadRoute(TubesS3RouteStatus &route) {
+  return tubes.readS3Route(route);
+}
+
 bool tubesS3ForceNext() {
   return tubes.s3ForceNext();
 }
 
 bool tubesS3SetMasterAuthority(bool enabled) {
   return tubes.s3SetMasterAuthority(enabled);
+}
+
+bool tubesS3SetAnchorAuthority(bool enabled) {
+  return tubes.s3SetAnchorAuthority(enabled);
 }
 // AI: end

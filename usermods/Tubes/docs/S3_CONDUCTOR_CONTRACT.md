@@ -22,8 +22,11 @@ Conductor, Surveyor, Anchor, and Updater. Conductor reads the rendered frame
 and live Tubes state through a narrow fixed-size API. Its Next control invokes
 the existing master `force_next()` path, and its authority control persists the
 existing `MasterRole` boundary before reboot. Surveyor reads the bounded peer
-telemetry table. Anchor and Updater state their unavailable capabilities
-without creating coordinates, artifacts, or a second update transport.
+telemetry table. Anchor separately enables the existing route-sidecar origin
+only while the S3 is master, defaults off after every boot, and reports shell,
+conductor, parent, and route cost without creating coordinates. Updater still
+states its unavailable capability without creating artifacts or a second
+update transport.
 
 IDs 24 and above still execute WLED's real effect engine and are cross-faded by
 the existing Tubes controller; they are not substituted with fake patterns.

@@ -121,4 +121,23 @@ test('peripheral smoke environment is offline and documentation retains the firs
 	assert.match(readme, /must not be flashed before factory preservation/i);
 	assert.match(readme, /Greg's explicit approval/i);
 });
+
+test('S3 anchor is explicit, authority-gated, and reports only route observations', () => {
+	const api = fs.readFileSync(path.join(root, 'usermods/Tubes/s3_field_api.h'), 'utf8');
+	const tubes = fs.readFileSync(path.join(root, 'usermods/Tubes/Tubes.h'), 'utf8');
+	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+	const contract = fs.readFileSync(path.join(root, 'usermods/Tubes/docs/S3_FIELD_OS.md'), 'utf8');
+
+	assert.match(api, /struct TubesS3RouteStatus/);
+	assert.match(api, /bool tubesS3SetAnchorAuthority\(bool enabled\)/);
+	assert.match(tubes, /bool s3AnchorAuthority = false;/);
+	assert.match(tubes, /if \(enabled && !controller\.isMasterRole\(\)\) return false;/);
+	assert.match(tubes, /controller\.node\.setMobileConductorAuthority\(enabled\)/);
+	assert.match(fieldOs, /F\("Enable anchor"\)/);
+	assert.match(fieldOs, /F\("Disable anchor"\)/);
+	assert.match(fieldOs, /route\.shell/);
+	assert.doesNotMatch(fieldOs, /anchor.*(?:distance|coordinate|meter)/i);
+	assert.match(contract, /defaults off after every boot/i);
+	assert.match(contract, /does not infer\s+distance or coordinates/i);
+});
 // AI: end

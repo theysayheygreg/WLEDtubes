@@ -21,6 +21,12 @@ under every screen. Screen navigation never pauses the installation.
 These are runtime workspaces and capabilities in one S3 hardware image. They
 are not separate firmware variants or new wire-level Tubes roles.
 
+Anchor authority defaults off after every boot, including when persisted
+`MasterRole` restores clock authority. Greg must explicitly enable it from the
+Anchor workspace, and only a current master may do so. The screen reports the
+observed shell, conductor, parent, and bounded route cost; it does not infer
+distance or coordinates from those values.
+
 ## Firmware library
 
 The S3 carrier and the artifact target are different identities. An S3 may
