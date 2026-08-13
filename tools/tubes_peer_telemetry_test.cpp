@@ -9,7 +9,10 @@ int main() {
   PeerTelemetry telemetry;
   telemetry.observe(0, 1, -50, 10);
   telemetry.observe(1, 0, 0, 10);
-  assert(telemetry.count() == 0);
+  assert(telemetry.count() == 1);
+  const PeerTelemetryEntry *unknownRssi = telemetry.get(1);
+  assert(unknownRssi != nullptr);
+  assert(unknownRssi->samples == 1);
 
   telemetry.observe(0x101, 0x100, -70, 100);
   telemetry.observe(0x101, 0x102, -50, 200);

@@ -968,7 +968,9 @@ class PatternController : public MessageReceiver {
     EEPROM.write(BOOT_OPTIONS_EEPROM_LOCATION, 0); // Reset all boot options
     EEPROM.end();
     delay(10);
+#ifndef TUBES_S3_FIELD_OS
     doReboot = true;
+#endif
   }
 
   SyncMode randomSyncMode() {

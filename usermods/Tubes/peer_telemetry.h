@@ -21,7 +21,8 @@ struct PeerTelemetryEntry {
 class PeerTelemetry {
 public:
   void observe(uint16_t nodeId, uint16_t uplinkId, int8_t rssi, uint32_t now) {
-    if (nodeId == 0 || rssi == 0) return;
+    // A packet with unavailable RSSI still proves a real peer.
+    if (nodeId == 0) return;
 
     PeerTelemetryEntry *entry = find(nodeId);
     if (entry == nullptr) entry = allocate(now);

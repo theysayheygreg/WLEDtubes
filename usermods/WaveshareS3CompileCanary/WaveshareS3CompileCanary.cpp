@@ -160,6 +160,8 @@ private:
                    status.bpm, status.beat + 1, static_cast<unsigned>(status.peerCount),
                    status.peerCount == 1 ? "" : "s");
     display.setCursor(24, 123);
+    display.setTextColor(COLOR_MUTED);
+    display.printf("ID %03X  #%u", status.deviceId, status.deviceNumber);
     const uint32_t now = millis();
     if (!status.radioReady) {
       display.setTextColor(RGB565_RED);
