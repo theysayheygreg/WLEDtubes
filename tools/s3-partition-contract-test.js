@@ -140,4 +140,14 @@ test('S3 anchor is explicit, authority-gated, and reports only route observation
 	assert.match(contract, /defaults off after every boot/i);
 	assert.match(contract, /does not infer\s+distance or coordinates/i);
 });
+
+test('S3 field OS does not periodically blank and repaint the AMOLED', () => {
+	const source = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+	const fieldOs = source.match(/class WaveshareS3FieldOs[\s\S]*?static WaveshareS3FieldOs/);
+	assert.ok(fieldOs, 'missing S3 field OS implementation');
+	const loop = fieldOs[0].match(/void loop\(\) override \{[\s\S]*?\n  \}/);
+	assert.ok(loop, 'missing S3 field OS loop');
+	assert.doesNotMatch(loop[0], /now - lastDraw[\s\S]*?draw\(\)/,
+		'periodic full-screen repaint causes the visible AMOLED blink');
+});
 // AI: end

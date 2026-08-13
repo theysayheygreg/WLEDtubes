@@ -68,7 +68,6 @@ private:
   bool displayReady = false;
   bool touchReady = false;
   FieldScreen screen = FieldScreen::Home;
-  uint32_t lastDraw = 0;
 
   static uint16_t rgb565(uint32_t color) {
     const uint8_t red = color >> 16;
@@ -227,7 +226,6 @@ private:
       tubesS3SetAnchorAuthority(!route.anchorEnabled);
     }
     draw();
-    lastDraw = millis();
   }
 
 public:
@@ -259,11 +257,6 @@ public:
       int16_t x = -1;
       int16_t y = -1;
       if (touch.getPoint(&x, &y, 1) > 0) onTouch(x, y);
-    }
-    const uint32_t now = millis();
-    if (now - lastDraw >= SAMPLE_INTERVAL_MS) {
-      lastDraw = now;
-      draw();
     }
   }
 
