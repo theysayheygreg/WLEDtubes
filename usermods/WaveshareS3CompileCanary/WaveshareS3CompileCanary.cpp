@@ -344,7 +344,7 @@ private:
     } else if (screen == FieldScreen::Conductor) {
       TubesS3FieldStatus status;
       tubesS3ReadStatus(status);
-      drawConductorTelemetry();
+      drawConductorTelemetry(status);
       drawConductorPreview(status, true);
     } else if (screen == FieldScreen::Anchor) {
       drawAnchor();
@@ -403,9 +403,22 @@ public:
   void addToJsonInfo(JsonObject &root) override {
     JsonObject user = root[F("u")];
     if (user.isNull()) user = root.createNestedObject(F("u"));
-    JsonArray fieldOs = user.createNestedArray(F("S3 field OS"));
-    fieldOs.add(displayReady ? F("display OK") : F("display FAIL"));
-    fieldOs.add(touchReady ? F("touch OK") : F("touch FAIL"));
+    JsonObject fieldOs = user.createNestedObject(F("S3 field OS"));
+    fieldOs[F("display")] = displayReady ? F("OK") : F("FAIL");
+    fieldOs[F("touch")] = touchReady ? F("OK") : F("FAIL");
+#ifdef TUBES_S3_FIELD_OS
+    TubesS3FieldStatus status;
+    tubesS3ReadStatus(status);
+    fieldOs[F("radio")] = status.radioReady;
+    fieldOs[F("following")] = status.isFollowing;
+    fieldOs[F("master")] = status.isMaster;
+    fieldOs[F("peers")] = status.peerCount;
+    fieldOs[F("rx")] = status.receivedPacketCount;
+    fieldOs[F("sync")] = status.synchronizedPacketCount;
+    fieldOs[F("lastSyncMs")] = status.lastSyncMs;
+    fieldOs[F("lastRxMs")] = status.lastPacketMs;
+    fieldOs[F("channel")] = status.radioChannel;
+#endif
   }
 };
 
