@@ -204,5 +204,10 @@ test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern 
 	assert.match(fieldOs, /x >= 20 && x < 230\) tubesS3ForceNext\(\)/);
 	assert.match(tubes, /bool s3ForceNext\(\)[\s\S]*controller\.force_next_pattern\(\)/,
 		'Next pattern must not use the generic next scheduled event');
+	assert.match(fieldOs, /TOUCH_DEBOUNCE_MS/);
+	assert.match(fieldOs, /if \(!action\) return;/);
+	assert.match(fieldOs, /if \(nextScreen != screen\)[\s\S]*?draw\(\);/);
+	assert.doesNotMatch(fieldOs.match(/void onTouch[\s\S]*?\n  \}\n\npublic:/)[0], /\n    draw\(\);\n  \}/,
+		'held touch must not redraw unconditionally');
 });
 // AI: end

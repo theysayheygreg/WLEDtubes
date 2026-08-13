@@ -71,6 +71,8 @@ private:
   FieldScreen screen = FieldScreen::Home;
   uint32_t lastPreviewDraw = 0;
   uint32_t lastTelemetryDraw = 0;
+  uint32_t lastTouchActionMs = 0;
+  static constexpr uint32_t TOUCH_DEBOUNCE_MS = 350;
 
   static constexpr uint16_t COLOR_BACKGROUND = 0x0863;
   static constexpr uint16_t COLOR_SURFACE = 0x10E7;
@@ -310,22 +312,43 @@ private:
   }
 
   void onTouch(int16_t x, int16_t y) {
+    const uint32_t now = millis();
+    if (now - lastTouchActionMs < TOUCH_DEBOUNCE_MS) return;
+    FieldScreen nextScreen = screen;
+    bool action = false;
     if (screen != FieldScreen::Home && x >= 360 && y <= 75) {
-      screen = FieldScreen::Home;
+      nextScreen = FieldScreen::Home;
+      action = true;
     } else if (screen == FieldScreen::Home) {
-      if (y >= 90 && y < 250) screen = x < 240 ? FieldScreen::Conductor : FieldScreen::Surveyor;
-      else if (y >= 250 && y < 430) screen = x < 240 ? FieldScreen::Anchor : FieldScreen::Updater;
+      if (y >= 90 && y < 250) nextScreen = x < 240 ? FieldScreen::Conductor : FieldScreen::Surveyor;
+      else if (y >= 250 && y < 430) nextScreen = x < 240 ? FieldScreen::Anchor : FieldScreen::Updater;
+      action = nextScreen != screen;
     } else if (screen == FieldScreen::Conductor && y >= 325 && y < 440) {
       TubesS3FieldStatus status;
       tubesS3ReadStatus(status);
       if (x >= 20 && x < 230) tubesS3ForceNext();
       else if (x >= 250 && x < 460) tubesS3SetMasterAuthority(!status.isMaster);
+      else return;
+      action = true;
     } else if (screen == FieldScreen::Anchor && y >= 310) {
       TubesS3RouteStatus route;
       tubesS3ReadRoute(route);
       tubesS3SetAnchorAuthority(!route.anchorEnabled);
+      action = true;
     }
-    draw();
+    if (!action) return;
+    lastTouchActionMs = now;
+    if (nextScreen != screen) {
+      screen = nextScreen;
+      draw();
+    } else if (screen == FieldScreen::Conductor) {
+      TubesS3FieldStatus status;
+      tubesS3ReadStatus(status);
+      drawConductorTelemetry();
+      drawConductorPreview(status, true);
+    } else if (screen == FieldScreen::Anchor) {
+      drawAnchor();
+    }
   }
 
 public:
