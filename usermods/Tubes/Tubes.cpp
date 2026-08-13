@@ -21,6 +21,10 @@ bool tubesS3ForceNext() {
   return tubes.s3ForceNext();
 }
 
+bool tubesS3ForcePrevious() {
+  return tubes.s3ForcePrevious();
+}
+
 bool tubesS3SetMasterAuthority(bool enabled) {
   return tubes.s3SetMasterAuthority(enabled);
 }

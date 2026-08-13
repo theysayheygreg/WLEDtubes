@@ -1355,6 +1355,11 @@ class PatternController : public MessageReceiver {
         return true;
 
       case COMMAND_STATE: {
+#ifdef TUBES_S3_FIELD_OS
+        // S3 Field OS observes inbound state for diagnostics, but its local
+        // virtual strip is a separate instrument and never mirrors the flock.
+        return true;
+#endif
         auto update_data = (TubeStates*)data;
 
         TubeState state;
@@ -1487,6 +1492,14 @@ class PatternController : public MessageReceiver {
     if (next_state.palette_phrase == next_state.pattern_phrase)
       next_state.palette_phrase += random8(0, 5);
     force_next();
+  }
+
+  void force_previous_pattern() {
+    const uint8_t id = current_state.pattern_id == 0 ? 255 : current_state.pattern_id - 1;
+    set_wled_pattern(id, 128, 128);
+    current_state.pattern_id = id;
+    next_state.pattern_id = id;
+    if (isMasterRole()) broadcast_state();
   }
 
   void force_next_effect() {

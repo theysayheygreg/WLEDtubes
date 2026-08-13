@@ -192,9 +192,10 @@ private:
     drawBack();
     drawConductorTelemetry(status);
     drawConductorPreview(status, true);
-    button(20, 325, 210, 115, status.isMaster ? COLOR_PRIMARY : COLOR_SURFACE_RAISED, F("Next pattern"));
-    button(250, 325, 210, 115, status.isMaster ? COLOR_SURFACE_RAISED : COLOR_MINT,
-           status.isMaster ? F("Release master") : F("Become master"));
+    button(20, 115, 210, 30, status.isMaster ? COLOR_SURFACE_RAISED : COLOR_PRIMARY, F("Follower"));
+    button(250, 115, 210, 30, status.isMaster ? COLOR_PRIMARY : COLOR_SURFACE_RAISED, F("Master"));
+    button(20, 325, 210, 115, COLOR_SURFACE_RAISED, F("Previous pattern"));
+    button(250, 325, 210, 115, COLOR_SURFACE_RAISED, F("Next pattern"));
     lastPreviewDraw = millis();
     lastTelemetryDraw = millis();
   }
@@ -325,11 +326,14 @@ private:
       if (y >= 90 && y < 250) nextScreen = x < 240 ? FieldScreen::Conductor : FieldScreen::Surveyor;
       else if (y >= 250 && y < 430) nextScreen = x < 240 ? FieldScreen::Anchor : FieldScreen::Updater;
       action = nextScreen != screen;
+    } else if (screen == FieldScreen::Conductor && y >= 115 && y < 145) {
+      tubesS3SetMasterAuthority(x >= 240);
+      action = true;
     } else if (screen == FieldScreen::Conductor && y >= 325 && y < 440) {
       TubesS3FieldStatus status;
       tubesS3ReadStatus(status);
-      if (x >= 20 && x < 230) tubesS3ForceNext();
-      else if (x >= 250 && x < 460) tubesS3SetMasterAuthority(!status.isMaster);
+      if (x >= 20 && x < 240) tubesS3ForcePrevious();
+      else if (x >= 240 && x < 460) tubesS3ForceNext();
       else return;
       action = true;
     } else if (screen == FieldScreen::Anchor && y >= 310) {
