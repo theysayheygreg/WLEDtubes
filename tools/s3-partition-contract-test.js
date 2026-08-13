@@ -141,6 +141,21 @@ test('S3 anchor is explicit, authority-gated, and reports only route observation
 	assert.match(contract, /does not infer\s+distance or coordinates/i);
 });
 
+test('S3 local instrument observes COMMAND_STATE without mutating its virtual strip', () => {
+	const controller = fs.readFileSync(path.join(root, 'usermods/Tubes/controller.h'), 'utf8');
+	const stateCase = controller.match(/case COMMAND_STATE:\s*\{[\s\S]*?\n      case COMMAND_UPGRADE:/);
+	assert.ok(stateCase, 'missing COMMAND_STATE handler');
+	assert.match(stateCase[0], /#ifdef TUBES_S3_FIELD_OS[\s\S]*?return true;[\s\S]*?#endif/);
+	assert.doesNotMatch(stateCase[0].split('#endif', 1)[0], /load_pattern\(/);
+});
+
+test('S3 master/follower controls do not reboot and redraw is bounded', () => {
+	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+	assert.doesNotMatch(fieldOs.match(/void onTouch[\s\S]*?\n  \}\n\npublic:/)[0], /ESP\.restart|restart\(/);
+	assert.match(fieldOs, /tubesS3SetMasterAuthority\(x >= 240\)/);
+	assert.match(fieldOs, /drawConductorTelemetry\(status\);[\s\S]*drawConductorPreview\(status, true\)/);
+});
+
 test('S3 field OS does not periodically blank and repaint the AMOLED', () => {
 	const source = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
 	const fieldOs = source.match(/class WaveshareS3FieldOs[\s\S]*?static WaveshareS3FieldOs/);
@@ -186,7 +201,16 @@ test('S3 field telemetry reports real radio, traffic, freshness, and accepted sy
 	assert.match(fieldOs, /LISTENING/);
 	assert.match(fieldOs, /STALE/);
 	assert.match(fieldOs, /ACTIVE/);
-	assert.match(fieldOs, /peer\.samples/);
+	assert.match(fieldOs, /peer\.latestRssi/);
+});
+
+test('S3 Surveyor sorts fresh known RSSI before unknown and ties by device ID', () => {
+	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+	assert.match(fieldOs, /candidateKnown != priorKnown/);
+	assert.match(fieldOs, /candidate\.latestRssi > prior\.latestRssi/);
+	assert.match(fieldOs, /candidate\.nodeId < prior\.nodeId/);
+	assert.match(fieldOs, /candidate\.nodeId == status\.deviceId/);
+	assert.match(fieldOs, /age > 60000/);
 });
 
 test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern semantics', () => {
@@ -201,9 +225,16 @@ test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern 
 	assert.match(surveyor[0], /fillRoundRect\(22, y, 438, 30/);
 
 	assert.match(fieldOs, /screen == FieldScreen::Conductor && y >= 325 && y < 440/);
-	assert.match(fieldOs, /x >= 20 && x < 230\) tubesS3ForceNext\(\)/);
+	assert.match(fieldOs, /x >= 20 && x < 240\) tubesS3ForcePrevious\(\)/);
+	assert.match(fieldOs, /x >= 240 && x < 460\) tubesS3ForceNext\(\)/);
+	assert.match(fieldOs, /button\(20, 115, 210, 30[\s\S]*button\(250, 115, 210, 30/,
+		'Follower/Master controls must remain compact and above the strip');
+	assert.match(fieldOs, /button\(20, 325, 210, 115[\s\S]*button\(250, 325, 210, 115/,
+		'Previous/Next controls must be equal buttons below the strip');
 	assert.match(tubes, /bool s3ForceNext\(\)[\s\S]*controller\.force_next_pattern\(\)/,
 		'Next pattern must not use the generic next scheduled event');
+	assert.match(tubes, /bool s3ForcePrevious\(\)[\s\S]*controller\.force_previous_pattern\(\)/,
+		'Previous pattern must not use the generic next scheduled event');
 	assert.match(fieldOs, /TOUCH_DEBOUNCE_MS/);
 	assert.match(fieldOs, /if \(!action\) return;/);
 	assert.match(fieldOs, /if \(nextScreen != screen\)[\s\S]*?draw\(\);/);

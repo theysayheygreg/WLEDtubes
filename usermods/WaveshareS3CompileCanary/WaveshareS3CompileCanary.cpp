@@ -227,19 +227,41 @@ private:
     display.printf("%u peer%s  |  %lu packets  |  signal, not distance",
                    static_cast<unsigned>(status.peerCount), status.peerCount == 1 ? "" : "s",
                    status.receivedPacketCount);
-    const size_t rows = status.peerCount < 8 ? status.peerCount : 8;
+    TubesS3PeerStatus sorted[8];
+    size_t rows = 0;
+    for (size_t i = 0; i < status.peerCount && rows < 8; i++) {
+      TubesS3PeerStatus candidate;
+      if (!tubesS3ReadPeer(i, candidate) || candidate.nodeId == status.deviceId) continue;
+      const uint32_t age = now - candidate.lastSeenMs;
+      if (age > 60000) continue;
+      size_t at = rows;
+      const bool candidateKnown = candidate.latestRssi != 0;
+      while (at > 0) {
+        const TubesS3PeerStatus &prior = sorted[at - 1];
+        const bool priorKnown = prior.latestRssi != 0;
+        const bool before = (candidateKnown != priorKnown) ? candidateKnown
+          : (candidateKnown && candidate.latestRssi != prior.latestRssi) ? candidate.latestRssi > prior.latestRssi
+          : candidate.nodeId < prior.nodeId;
+        if (!before) break;
+        sorted[at] = sorted[at - 1];
+        at--;
+      }
+      sorted[at] = candidate;
+      rows++;
+    }
     for (size_t i = 0; i < 8; i++) {
       const int16_t y = 140 + static_cast<int16_t>(i * 38);
       display.fillRoundRect(22, y, 438, 30, 10, COLOR_SURFACE);
       if (i >= rows) continue;
-      TubesS3PeerStatus peer;
-      if (!tubesS3ReadPeer(i, peer)) continue;
+      const TubesS3PeerStatus &peer = sorted[i];
       const uint32_t age = now - peer.lastSeenMs;
       display.setTextColor(age <= 20000 ? RGB565_WHITE : COLOR_MUTED);
       display.setTextSize(1);
       display.setCursor(34, y + 11);
-      display.printf("%03X  via %03X   %4d dBm   %lus   %lu rx",
-                     peer.nodeId, peer.uplinkId, peer.latestRssi, age / 1000, peer.samples);
+      if (peer.latestRssi == 0) display.printf("%03X   signal unknown   %lus", peer.nodeId, age / 1000);
+      else display.printf("%03X   %s %4d dBm   %lus", peer.nodeId,
+                          peer.latestRssi >= -55 ? "|||" : peer.latestRssi >= -70 ? "|| " : "|  ",
+                          peer.latestRssi, age / 1000);
     }
     if (rows == 0) {
       display.setTextColor(COLOR_MUTED);
