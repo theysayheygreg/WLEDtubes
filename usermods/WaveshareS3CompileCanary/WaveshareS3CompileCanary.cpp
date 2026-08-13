@@ -39,6 +39,7 @@ constexpr int8_t TOUCH_RESET = 40;
 constexpr int16_t DISPLAY_WIDTH = 480;
 constexpr int16_t DISPLAY_HEIGHT = 480;
 constexpr uint32_t SAMPLE_INTERVAL_MS = 500;
+constexpr uint32_t PREVIEW_INTERVAL_MS = 50;
 constexpr uint8_t SMOKE_DEFAULT_BRIGHTNESS = 160;
 
 volatile bool touchInterruptPending = false;
@@ -68,6 +69,16 @@ private:
   bool displayReady = false;
   bool touchReady = false;
   FieldScreen screen = FieldScreen::Home;
+  uint32_t lastPreviewDraw = 0;
+  uint32_t lastTelemetryDraw = 0;
+
+  static constexpr uint16_t COLOR_BACKGROUND = 0x0863;
+  static constexpr uint16_t COLOR_SURFACE = 0x10E7;
+  static constexpr uint16_t COLOR_SURFACE_RAISED = 0x194A;
+  static constexpr uint16_t COLOR_PRIMARY = 0x64FF;
+  static constexpr uint16_t COLOR_MINT = 0x5F56;
+  static constexpr uint16_t COLOR_AMBER = 0xFDC8;
+  static constexpr uint16_t COLOR_MUTED = 0x8C51;
 
   static uint16_t rgb565(uint32_t color) {
     const uint8_t red = color >> 16;
@@ -77,17 +88,17 @@ private:
   }
 
   void title(const __FlashStringHelper *text) {
-    display.fillScreen(RGB565_BLACK);
+    display.fillScreen(COLOR_BACKGROUND);
     display.setTextWrap(false);
-    display.setTextColor(RGB565_CYAN);
-    display.setTextSize(3);
-    display.setCursor(20, 18);
+    display.setTextColor(RGB565_WHITE);
+    display.setTextSize(2);
+    display.setCursor(24, 22);
     display.println(text);
   }
 
   void button(int16_t x, int16_t y, int16_t width, int16_t height, uint16_t color,
               const __FlashStringHelper *label) {
-    display.fillRoundRect(x, y, width, height, 12, color);
+    display.fillRoundRect(x, y, width, height, 20, color);
     display.setTextColor(RGB565_WHITE);
     display.setTextSize(2);
     display.setCursor(x + 16, y + height / 2 - 8);
@@ -96,18 +107,78 @@ private:
 
   void drawHome() {
     title(F("Tubes Field OS"));
+    display.setTextColor(COLOR_MUTED);
+    display.setTextSize(1);
+    display.setCursor(25, 51);
+    display.println(F("The flock stays live wherever you go"));
+    button(20, 84, 210, 164, COLOR_PRIMARY, F("Conductor"));
+    button(250, 84, 210, 164, COLOR_MINT, F("Surveyor"));
+    button(20, 268, 210, 164, 0xA23F, F("Anchor"));
+    button(250, 268, 210, 164, COLOR_AMBER, F("Updater"));
     display.setTextColor(RGB565_WHITE);
     display.setTextSize(1);
-    display.setCursor(22, 55);
-    display.println(F("Mesh, clock and art stay live on every screen"));
-    button(20, 90, 210, 150, RGB565_BLUE, F("Conductor"));
-    button(250, 90, 210, 150, RGB565_DARKGREEN, F("Surveyor"));
-    button(20, 260, 210, 150, RGB565_PURPLE, F("Anchor"));
-    button(250, 260, 210, 150, RGB565_ORANGE, F("Updater"));
+    display.setCursor(36, 199);
+    display.println(F("Run the show"));
+    display.setCursor(266, 199);
+    display.println(F("Hear the field"));
+    display.setCursor(36, 383);
+    display.println(F("Shape proximity"));
+    display.setCursor(266, 383);
+    display.println(F("Service safely"));
   }
 
   void drawBack() {
-    button(370, 15, 90, 45, RGB565_DARKGREY, F("Home"));
+    button(372, 12, 88, 48, COLOR_SURFACE_RAISED, F("Home"));
+  }
+
+  // Paints only the live viewport so animation never blanks the AMOLED.
+  void drawConductorPreview(const TubesS3FieldStatus &status, bool drawFrame = false) {
+    if (drawFrame) {
+      display.fillRoundRect(20, 145, 440, 160, 24, COLOR_SURFACE);
+      display.drawRoundRect(25, 150, 430, 150, 20, COLOR_SURFACE_RAISED);
+    }
+    for (size_t i = 0; i < TUBES_S3_PREVIEW_PIXELS; i++) {
+      const int16_t x = 31 + static_cast<int16_t>(i * 7);
+      display.fillRect(x, 156, 6, 138, rgb565(status.preview[i]));
+    }
+  }
+
+  // Reports synchronization only when accepted state/beat traffic proves it.
+  void drawConductorTelemetry(const TubesS3FieldStatus &status) {
+    display.fillRect(20, 68, 440, 73, COLOR_BACKGROUND);
+    display.setTextColor(RGB565_WHITE);
+    display.setTextSize(3);
+    display.setCursor(22, 70);
+    display.printf("%s\n", status.patternName);
+    display.setTextColor(COLOR_MUTED);
+    display.setTextSize(1);
+    display.setCursor(24, 104);
+    display.printf("%s  |  %u BPM  |  beat %u  |  %u peer%s\n",
+                   status.isMaster ? "LEADING" : status.isFollowing ? "FOLLOWING" : "UNLINKED",
+                   status.bpm, status.beat + 1, static_cast<unsigned>(status.peerCount),
+                   status.peerCount == 1 ? "" : "s");
+    display.setCursor(24, 123);
+    const uint32_t now = millis();
+    if (!status.radioReady) {
+      display.setTextColor(RGB565_RED);
+      display.printf("Radio offline  |  channel %u\n", status.radioChannel);
+    } else if (status.receivedPacketCount == 0) {
+      display.setTextColor(COLOR_AMBER);
+      display.printf("Listening on channel %u  |  no mesh packets heard\n", status.radioChannel);
+    } else if (!status.isMaster && status.synchronizedPacketCount > 0 && now - status.lastSyncMs <= 20000) {
+      display.setTextColor(COLOR_MINT);
+      display.printf("SYNCED from %03X  |  RX %lums ago\n", status.syncSourceId, now - status.lastSyncMs);
+    } else if (now - status.lastPacketMs > 20000) {
+      display.setTextColor(COLOR_AMBER);
+      display.printf("Mesh stale  |  last RX %lus ago\n", (now - status.lastPacketMs) / 1000);
+    } else if (status.isMaster) {
+      display.setTextColor(COLOR_MINT);
+      display.printf("Mesh active  |  RX %lums  |  TX %lu packets\n",
+                     now - status.lastPacketMs, status.transmittedPacketCount);
+    } else {
+      display.setTextColor(COLOR_AMBER);
+      display.printf("Packets heard; no fresh sync state  |  RX %lums\n", now - status.lastPacketMs);
+    }
   }
 
   void drawConductor() {
@@ -115,44 +186,73 @@ private:
     tubesS3ReadStatus(status);
     title(F("Conductor"));
     drawBack();
-    display.setTextColor(RGB565_WHITE);
-    display.setTextSize(2);
-    display.setCursor(22, 78);
-    display.printf("%s  Role %u\n", status.isMaster ? "MASTER" : "FOLLOWER", status.role);
-    display.printf("Pattern %u   Palette %u\n", status.patternId, status.paletteId);
-    display.printf("Tempo %u BPM   Beat %u\n", status.bpm, status.beat + 1);
-    display.printf("Peers heard %u\n", static_cast<unsigned>(status.peerCount));
-
-    for (size_t i = 0; i < TUBES_S3_PREVIEW_PIXELS; i++) {
-      display.fillRect(20 + i * 37, 190, 32, 110, rgb565(status.preview[i]));
-    }
-    button(20, 335, 210, 100, status.isMaster ? RGB565_BLUE : RGB565_DARKGREY, F("Next"));
-    button(250, 335, 210, 100, status.isMaster ? RGB565_DARKGREEN : RGB565_RED,
+    drawConductorTelemetry(status);
+    drawConductorPreview(status, true);
+    button(20, 325, 210, 115, status.isMaster ? COLOR_PRIMARY : COLOR_SURFACE_RAISED, F("Next pattern"));
+    button(250, 325, 210, 115, status.isMaster ? COLOR_SURFACE_RAISED : COLOR_MINT,
            status.isMaster ? F("Release master") : F("Become master"));
+    lastPreviewDraw = millis();
+    lastTelemetryDraw = millis();
+  }
+
+  void drawSurveyorTelemetry() {
+    TubesS3FieldStatus status;
+    tubesS3ReadStatus(status);
+    display.fillRect(22, 72, 440, 54, COLOR_BACKGROUND);
+    display.setTextSize(2);
+    display.setCursor(24, 75);
+    const uint32_t now = millis();
+    if (!status.radioReady) {
+      display.setTextColor(RGB565_RED);
+      display.printf("RADIO OFFLINE  ch %u", status.radioChannel);
+    } else if (status.receivedPacketCount == 0) {
+      display.setTextColor(COLOR_AMBER);
+      display.printf("LISTENING  ch %u", status.radioChannel);
+    } else if (now - status.lastPacketMs > 20000) {
+      display.setTextColor(COLOR_AMBER);
+      display.printf("STALE  ch %u  %lus ago",
+                     status.radioChannel, (now - status.lastPacketMs) / 1000);
+    } else {
+      display.setTextColor(COLOR_MINT);
+      display.printf("ACTIVE  ch %u  RX %lums", status.radioChannel, now - status.lastPacketMs);
+    }
+    display.setTextColor(COLOR_MUTED);
+    display.setTextSize(1);
+    display.setCursor(24, 105);
+    display.printf("%u peer%s  |  %lu packets  |  signal, not distance",
+                   static_cast<unsigned>(status.peerCount), status.peerCount == 1 ? "" : "s",
+                   status.receivedPacketCount);
+    const size_t rows = status.peerCount < 8 ? status.peerCount : 8;
+    for (size_t i = 0; i < 8; i++) {
+      const int16_t y = 140 + static_cast<int16_t>(i * 38);
+      display.fillRoundRect(22, y, 438, 30, 10, COLOR_SURFACE);
+      if (i >= rows) continue;
+      TubesS3PeerStatus peer;
+      if (!tubesS3ReadPeer(i, peer)) continue;
+      const uint32_t age = now - peer.lastSeenMs;
+      display.setTextColor(age <= 20000 ? RGB565_WHITE : COLOR_MUTED);
+      display.setTextSize(1);
+      display.setCursor(34, y + 11);
+      display.printf("%03X  via %03X   %4d dBm   %lus   %lu rx",
+                     peer.nodeId, peer.uplinkId, peer.latestRssi, age / 1000, peer.samples);
+    }
+    if (rows == 0) {
+      display.setTextColor(COLOR_MUTED);
+      display.setTextSize(2);
+      display.setCursor(42, 220);
+      display.println(F("Waiting for Tubes..."));
+    }
+    lastTelemetryDraw = millis();
   }
 
   void drawSurveyor() {
-    TubesS3FieldStatus status;
-    tubesS3ReadStatus(status);
     title(F("Surveyor"));
     drawBack();
-    display.setTextColor(RGB565_WHITE);
+    display.setTextColor(COLOR_MUTED);
     display.setTextSize(1);
-    display.setCursor(22, 72);
-    display.printf("Recently heard peers: %u   RSSI is observed signal strength\n\n",
-                   static_cast<unsigned>(status.peerCount));
-    const size_t rows = status.peerCount < 9 ? status.peerCount : 9;
-    for (size_t i = 0; i < rows; i++) {
-      TubesS3PeerStatus peer;
-      if (!tubesS3ReadPeer(i, peer)) continue;
-      display.printf("%03X via %03X   %4d dBm   min %4d max %4d   %lus\n",
-                     peer.nodeId, peer.uplinkId, peer.latestRssi, peer.minimumRssi,
-                     peer.maximumRssi, (millis() - peer.lastSeenMs) / 1000);
-    }
-    if (rows == 0) display.println(F("No Tubes packets heard yet."));
-    display.setCursor(22, 430);
-    display.setTextColor(RGB565_YELLOW);
-    display.println(F("No distance or position is inferred from RSSI."));
+    display.setCursor(24, 450);
+    display.println(F("Live receiver evidence"));
+    drawSurveyorTelemetry();
   }
 
   void drawAnchor() {
@@ -215,11 +315,11 @@ private:
     } else if (screen == FieldScreen::Home) {
       if (y >= 90 && y < 250) screen = x < 240 ? FieldScreen::Conductor : FieldScreen::Surveyor;
       else if (y >= 250 && y < 430) screen = x < 240 ? FieldScreen::Anchor : FieldScreen::Updater;
-    } else if (screen == FieldScreen::Conductor && y >= 320) {
+    } else if (screen == FieldScreen::Conductor && y >= 325 && y < 440) {
       TubesS3FieldStatus status;
       tubesS3ReadStatus(status);
-      if (x < 240) tubesS3ForceNext();
-      else tubesS3SetMasterAuthority(!status.isMaster);
+      if (x >= 20 && x < 230) tubesS3ForceNext();
+      else if (x >= 250 && x < 460) tubesS3SetMasterAuthority(!status.isMaster);
     } else if (screen == FieldScreen::Anchor && y >= 310) {
       TubesS3RouteStatus route;
       tubesS3ReadRoute(route);
@@ -257,6 +357,23 @@ public:
       int16_t x = -1;
       int16_t y = -1;
       if (touch.getPoint(&x, &y, 1) > 0) onTouch(x, y);
+    }
+    const uint32_t now = millis();
+    if (displayReady && screen == FieldScreen::Conductor && now - lastPreviewDraw >= PREVIEW_INTERVAL_MS) {
+      lastPreviewDraw = now;
+      TubesS3FieldStatus status;
+      tubesS3ReadStatus(status);
+      drawConductorPreview(status);
+    }
+    if (displayReady && now - lastTelemetryDraw >= SAMPLE_INTERVAL_MS) {
+      if (screen == FieldScreen::Conductor) {
+        TubesS3FieldStatus status;
+        tubesS3ReadStatus(status);
+        drawConductorTelemetry(status);
+        lastTelemetryDraw = now;
+      } else if (screen == FieldScreen::Surveyor) {
+        drawSurveyorTelemetry();
+      }
     }
   }
 

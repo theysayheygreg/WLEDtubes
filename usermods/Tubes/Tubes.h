@@ -131,13 +131,25 @@ class TubesUsermod : public Usermod {
     // Supplies the board UI with a fixed-size snapshot of existing Tubes state.
     void readS3FieldStatus(TubesS3FieldStatus &status) const {
       status.isMaster = controller.isMasterRole();
+      status.isFollowing = controller.node.isFollowing();
+      status.radioReady = espnowBroadcast.isStarted();
       status.powerSave = controller.power_save;
       status.role = static_cast<uint8_t>(controller.role);
+      status.radioChannel = WiFi.channel();
       status.patternId = controller.current_state.pattern_id;
       status.paletteId = controller.current_state.palette_id;
       status.bpm = controller.current_state.bpm >> 8;
       status.beat = (controller.current_state.beat_frame >> 8) % 16;
       status.peerCount = controller.node.peerTelemetry.count();
+      status.uplinkId = controller.node.header.uplinkId;
+      status.syncSourceId = controller.node.lastSyncSourceId;
+      status.receivedPacketCount = controller.node.receivedPacketCount;
+      status.lastPacketMs = controller.node.lastPacketMs;
+      status.synchronizedPacketCount = controller.node.synchronizedPacketCount;
+      status.lastSyncMs = controller.node.lastSyncMs;
+      status.transmittedPacketCount = controller.node.transmittedPacketCount;
+      status.lastTransmitMs = controller.node.lastTransmitMs;
+      getPatternName(status.patternId, status.patternName, sizeof(status.patternName));
       const uint16_t length = strip.getLengthTotal();
       for (size_t i = 0; i < TUBES_S3_PREVIEW_PIXELS; i++) {
         const uint16_t pixel = length == 0 ? 0 : static_cast<uint16_t>((i * length) / TUBES_S3_PREVIEW_PIXELS);
@@ -182,7 +194,7 @@ class TubesUsermod : public Usermod {
 
     bool s3ForceNext() {
       if (!controller.isMasterRole()) return false;
-      controller.force_next();
+      controller.force_next_pattern();
       return true;
     }
 

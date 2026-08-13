@@ -49,6 +49,13 @@ class LightNode {
     MessageReceiver *receiver;
     MeshNodeHeader header;
     PeerTelemetry peerTelemetry;
+    uint32_t receivedPacketCount = 0;
+    uint32_t lastPacketMs = 0;
+    uint32_t synchronizedPacketCount = 0;
+    uint32_t lastSyncMs = 0;
+    uint16_t lastSyncSourceId = 0;
+    uint32_t transmittedPacketCount = 0;
+    uint32_t lastTransmitMs = 0;
 
     typedef enum{
         NODE_STATUS_QUIET=0,
@@ -167,6 +174,8 @@ class LightNode {
         // Track that another node exists, updating this node's understanding of the mesh.
         onPeerPing(message->header);
         peerTelemetry.observe(message->header.id, message->header.uplinkId, static_cast<int8_t>(rssi), millis());
+        lastPacketMs = millis();
+        if (receivedPacketCount != UINT32_MAX) receivedPacketCount++;
 
         bool ignore = false;
         switch (message->recipients) {
@@ -221,6 +230,11 @@ class LightNode {
 
             if (!valid)
                 return;
+            if (message->command == COMMAND_STATE || message->command == COMMAND_BEATS) {
+                lastSyncMs = millis();
+                lastSyncSourceId = message->header.id;
+                if (synchronizedPacketCount != UINT32_MAX) synchronizedPacketCount++;
+            }
         }
 
         // Re-broadcast the message if appropriate
@@ -258,7 +272,11 @@ class LightNode {
         Serial.println();
 #endif
 
-        __attribute__((unused)) auto success = espnowBroadcast.send((const uint8_t*)message, sizeof(*message));
+        auto success = espnowBroadcast.send((const uint8_t*)message, sizeof(*message));
+        if (success) {
+            lastTransmitMs = millis();
+            if (transmittedPacketCount != UINT32_MAX) transmittedPacketCount++;
+        }
 #ifdef NODE_DEBUGGING
         if (!success) {
             Serial.println("espnowBroadcast.send() failed!");

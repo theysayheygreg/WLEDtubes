@@ -150,4 +150,59 @@ test('S3 field OS does not periodically blank and repaint the AMOLED', () => {
 	assert.doesNotMatch(loop[0], /now - lastDraw[\s\S]*?draw\(\)/,
 		'periodic full-screen repaint causes the visible AMOLED blink');
 });
+
+test('S3 Conductor uses the live framebuffer and canonical pattern names', () => {
+	const api = fs.readFileSync(path.join(root, 'usermods/Tubes/s3_field_api.h'), 'utf8');
+	const tubes = fs.readFileSync(path.join(root, 'usermods/Tubes/Tubes.h'), 'utf8');
+	const patterns = fs.readFileSync(path.join(root, 'usermods/Tubes/pattern.h'), 'utf8');
+	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+
+	assert.match(api, /constexpr size_t TUBES_S3_PREVIEW_PIXELS = 60;/);
+	assert.match(tubes, /strip\.getPixelColor\(pixel\)/);
+	assert.match(tubes, /getPatternName\(status\.patternId, status\.patternName/);
+	assert.match(patterns, /extractModeName\(gPatterns\[patternId\]\.wled_fx_id/);
+	assert.match(fieldOs, /drawConductorPreview\(status\)/);
+	assert.match(fieldOs, /PREVIEW_INTERVAL_MS/);
+	assert.match(fieldOs, /no mesh packets heard/);
+	assert.match(fieldOs, /SYNCED from %03X/);
+	assert.match(fieldOs, /Packets heard; no fresh sync state/);
+	assert.doesNotMatch(fieldOs, /display\.printf\("Pattern %u/);
+});
+
+test('S3 field telemetry reports real radio, traffic, freshness, and accepted sync evidence', () => {
+	const api = fs.readFileSync(path.join(root, 'usermods/Tubes/s3_field_api.h'), 'utf8');
+	const node = fs.readFileSync(path.join(root, 'usermods/Tubes/node.h'), 'utf8');
+	const tubes = fs.readFileSync(path.join(root, 'usermods/Tubes/Tubes.h'), 'utf8');
+	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+
+	assert.match(api, /bool radioReady/);
+	assert.match(api, /uint32_t synchronizedPacketCount/);
+	assert.match(node, /peerTelemetry\.observe[\s\S]*receivedPacketCount\+\+/);
+	assert.match(node, /message->command == COMMAND_STATE \|\| message->command == COMMAND_BEATS/);
+	assert.match(node, /lastSyncSourceId = message->header\.id/);
+	assert.match(tubes, /status\.radioReady = espnowBroadcast\.isStarted\(\)/);
+	assert.match(tubes, /status\.radioChannel = WiFi\.channel\(\)/);
+	assert.match(fieldOs, /RADIO OFFLINE/);
+	assert.match(fieldOs, /LISTENING/);
+	assert.match(fieldOs, /STALE/);
+	assert.match(fieldOs, /ACTIVE/);
+	assert.match(fieldOs, /peer\.samples/);
+});
+
+test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern semantics', () => {
+	const tubes = fs.readFileSync(path.join(root, 'usermods/Tubes/Tubes.h'), 'utf8');
+	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+
+	const surveyor = fieldOs.match(/void drawSurveyorTelemetry\(\)[\s\S]*?\n  void drawSurveyor\(\)/);
+	assert.ok(surveyor, 'missing Surveyor telemetry renderer');
+	assert.doesNotMatch(surveyor[0], /fillRect\(20, 70, 440, 390/,
+		'periodic full-body clearing can leave the AMOLED visually blank');
+	assert.match(surveyor[0], /fillRect\(22, 72, 440, 54/);
+	assert.match(surveyor[0], /fillRoundRect\(22, y, 438, 30/);
+
+	assert.match(fieldOs, /screen == FieldScreen::Conductor && y >= 325 && y < 440/);
+	assert.match(fieldOs, /x >= 20 && x < 230\) tubesS3ForceNext\(\)/);
+	assert.match(tubes, /bool s3ForceNext\(\)[\s\S]*controller\.force_next_pattern\(\)/,
+		'Next pattern must not use the generic next scheduled event');
+});
 // AI: end
