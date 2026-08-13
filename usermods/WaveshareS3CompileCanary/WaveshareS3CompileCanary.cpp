@@ -471,7 +471,7 @@ private:
   void drawStatus() {
     if (!displayReady) return;
 
-    display.fillScreen(RGB565_BLACK);
+    // Static frame is cleared only during setup; sampled values below repaint bounded rows.
     display.setCursor(12, 14);
     display.setTextColor(RGB565_CYAN);
     display.setTextSize(2);
@@ -555,6 +555,7 @@ public:
     }
 
     samplePeripherals();
+    if (displayReady) display.fillScreen(RGB565_BLACK);
     drawStatus();
   }
 

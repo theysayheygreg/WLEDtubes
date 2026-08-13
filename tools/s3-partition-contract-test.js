@@ -210,4 +210,13 @@ test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern 
 	assert.doesNotMatch(fieldOs.match(/void onTouch[\s\S]*?\n  \}\n\npublic:/)[0], /\n    draw\(\);\n  \}/,
 		'held touch must not redraw unconditionally');
 });
+test('peripheral smoke loop never full-screen repaints and static frame is setup-only', () => {
+	const source = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+	const smoke = source.match(/class WaveshareS3PeripheralSmoke[\s\S]*?static WaveshareS3PeripheralSmoke/)[0];
+	const loop = smoke.match(/void loop\(\) override \{[\s\S]*?\n  \}/)[0];
+	assert.doesNotMatch(loop, /fillScreen/);
+	assert.match(smoke, /if \(displayReady\) display\.fillScreen\(RGB565_BLACK\);[\s\S]*drawStatus\(\);/);
+	assert.match(smoke, /sampleTouch\(\);/);
+});
+
 // AI: end
