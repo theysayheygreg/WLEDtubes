@@ -203,35 +203,32 @@ private:
   void drawSurveyorTelemetry() {
     TubesS3FieldStatus status;
     tubesS3ReadStatus(status);
+    // Keep the primary surface identity-first: the receiver is not a peer row.
     display.fillRect(22, 72, 440, 54, COLOR_BACKGROUND);
+    display.setTextColor(COLOR_MINT);
     display.setTextSize(2);
     display.setCursor(24, 75);
-    const uint32_t now = millis();
-    if (!status.radioReady) {
-      display.setTextColor(RGB565_RED);
-      display.printf("RADIO OFFLINE  ch %u", status.radioChannel);
-    } else if (status.receivedPacketCount == 0) {
-      display.setTextColor(COLOR_AMBER);
-      display.printf("LISTENING  ch %u", status.radioChannel);
-    } else if (now - status.lastPacketMs > 20000) {
-      display.setTextColor(COLOR_AMBER);
-      display.printf("STALE  ch %u  %lus ago",
-                     status.radioChannel, (now - status.lastPacketMs) / 1000);
-    } else {
-      display.setTextColor(COLOR_MINT);
-      display.printf("ACTIVE  ch %u  RX %lums", status.radioChannel, now - status.lastPacketMs);
-    }
+    display.printf("Nearby Tubes - %u found", static_cast<unsigned>(status.peerCount));
     display.setTextColor(COLOR_MUTED);
     display.setTextSize(1);
-    display.setCursor(24, 105);
-    display.printf("%u peer%s  |  %lu packets  |  signal, not distance",
-                   static_cast<unsigned>(status.peerCount), status.peerCount == 1 ? "" : "s",
-                   status.receivedPacketCount);
+    display.setCursor(24, 101);
+    display.printf("Scanning from S3 FD%u", static_cast<unsigned>(status.deviceNumber));
+    display.setCursor(24, 116);
+    const uint32_t now = millis();
+    // Diagnostic states: RADIO OFFLINE / LISTENING / STALE / ACTIVE remain subordinate.
+    display.setTextColor(!status.radioReady ? RGB565_RED : COLOR_MUTED);
+    if (!status.radioReady) display.print(F("Radio offline"));
+    else if (status.receivedPacketCount == 0) display.print(F("Listening"));
+    else if (now - status.lastPacketMs > 20000) display.printf("Stale %lus", (now - status.lastPacketMs) / 1000);
+    else display.printf("Active ch %u, RX %lums", status.radioChannel, now - status.lastPacketMs);
     TubesS3PeerStatus sorted[8];
     size_t rows = 0;
+    // peerCount is storage occupancy; rows is the actual external-peer count.
+    size_t externalCount = 0;
     for (size_t i = 0; i < status.peerCount && rows < 8; i++) {
       TubesS3PeerStatus candidate;
       if (!tubesS3ReadPeer(i, candidate) || candidate.nodeId == status.deviceId) continue;
+      externalCount++;
       const uint32_t age = now - candidate.lastSeenMs;
       if (age > 60000) continue;
       size_t at = rows;
