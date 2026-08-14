@@ -197,11 +197,16 @@ test('S3 field telemetry reports real radio, traffic, freshness, and accepted sy
 	assert.match(node, /lastSyncSourceId = message->header\.id/);
 	assert.match(tubes, /status\.radioReady = espnowBroadcast\.isStarted\(\)/);
 	assert.match(tubes, /status\.radioChannel = WiFi\.channel\(\)/);
-	assert.match(fieldOs, /RADIO OFFLINE/);
-	assert.match(fieldOs, /LISTENING/);
-	assert.match(fieldOs, /STALE/);
-	assert.match(fieldOs, /ACTIVE/);
+	assert.match(fieldOs, /Nearby Tubes - %u found/);
+	assert.match(fieldOs, /Scanning from S3 FD%u/);
+	assert.match(fieldOs, /Radio offline/);
+	assert.match(fieldOs, /Listening/);
+	assert.match(fieldOs, /Stale %lus/);
+	assert.match(fieldOs, /Active ch %u, RX %lums/);
 	assert.match(fieldOs, /peer\.latestRssi/);
+	assert.match(fieldOs, /signal unknown/);
+	assert.match(fieldOs, /candidate\.nodeId == status\.deviceId/);
+	assert.match(fieldOs, /externalCount/);
 });
 
 test('S3 Surveyor sorts fresh known RSSI before unknown and ties by device ID', () => {
