@@ -135,8 +135,9 @@ private:
 
   // Paints only the live viewport so animation never blanks the AMOLED.
   void drawConductorPreview(const TubesS3FieldStatus &status, bool drawFrame = false) {
+    // The frame is painted only during initial navigation; periodic preview updates
+    // overwrite pixels directly so QSPI never shows a clear-then-draw blink.
     if (drawFrame) {
-      display.fillRoundRect(20, 145, 440, 160, 24, COLOR_SURFACE);
       display.drawRoundRect(25, 150, 430, 150, 20, COLOR_SURFACE_RAISED);
     }
     for (size_t i = 0; i < TUBES_S3_PREVIEW_PIXELS; i++) {
@@ -147,21 +148,19 @@ private:
 
   // Reports synchronization only when accepted state/beat traffic proves it.
   void drawConductorTelemetry(const TubesS3FieldStatus &status) {
-    display.fillRect(20, 68, 440, 73, COLOR_BACKGROUND);
     display.setTextColor(RGB565_WHITE);
     display.setTextSize(3);
     display.setCursor(22, 70);
-    display.printf("%s\n", status.patternName);
+    display.printf("CURRENT DEVICE  |  %s\n", status.patternName);
     display.setTextColor(COLOR_MUTED);
     display.setTextSize(1);
     display.setCursor(24, 104);
-    display.printf("%s  |  %u BPM  |  beat %u  |  %u peer%s\n",
+    display.printf("%s  |  %u BPM  |  beat %u\n",
                    status.isMaster ? "LEADING" : status.isFollowing ? "FOLLOWING" : "UNLINKED",
-                   status.bpm, status.beat + 1, static_cast<unsigned>(status.peerCount),
-                   status.peerCount == 1 ? "" : "s");
+                   status.bpm, status.beat + 1);
     display.setCursor(24, 123);
     display.setTextColor(COLOR_MUTED);
-    display.printf("ID %03X  #%u", status.deviceId, status.deviceNumber);
+    display.printf("S3 ID %03X  device #%u", status.deviceId, status.deviceNumber);
     const uint32_t now = millis();
     if (!status.radioReady) {
       display.setTextColor(RGB565_RED);
@@ -194,6 +193,8 @@ private:
     drawConductorPreview(status, true);
     button(20, 115, 210, 30, status.isMaster ? COLOR_SURFACE_RAISED : COLOR_PRIMARY, F("Follower"));
     button(250, 115, 210, 30, status.isMaster ? COLOR_PRIMARY : COLOR_SURFACE_RAISED, F("Master"));
+    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 310);
+    display.printf("NETWORKED DEVICES  |  %u heard", static_cast<unsigned>(status.peerCount));
     button(20, 325, 210, 115, COLOR_SURFACE_RAISED, F("Previous pattern"));
     button(250, 325, 210, 115, COLOR_SURFACE_RAISED, F("Next pattern"));
     lastPreviewDraw = millis();

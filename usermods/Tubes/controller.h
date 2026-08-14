@@ -1488,10 +1488,12 @@ class PatternController : public MessageReceiver {
 #define WIZMOTE_BUTTON_BRIGHT_DOWN 8
 
   void force_next_pattern() {
-    next_state.pattern_phrase = current_state.beat_frame >> 12;
-    if (next_state.palette_phrase == next_state.pattern_phrase)
-      next_state.palette_phrase += random8(0, 5);
-    force_next();
+    // Remote navigation is a direct local action: do not wait for the scheduler.
+    const uint8_t id = static_cast<uint8_t>((current_state.pattern_id + 1) % gPatternCount);
+    set_wled_pattern(id, 128, 128);
+    current_state.pattern_id = id;
+    next_state.pattern_id = id;
+    if (isMasterRole()) broadcast_state();
   }
 
   void force_previous_pattern() {
