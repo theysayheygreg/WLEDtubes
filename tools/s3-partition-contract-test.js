@@ -226,12 +226,12 @@ test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern 
 	assert.match(surveyor[0], /TUBE ID     DEVICE #   FOLLOWING   SIGNAL/);
 	assert.match(surveyor[0], /display\.print\(F\("--"\)\)/);
 
-	assert.match(fieldOs, /screen == FieldScreen::Conductor && y >= 325 && y < 440/);
+	assert.match(fieldOs, /screen == FieldScreen::Conductor && y >= 320 && y < 410/);
 	assert.match(fieldOs, /x >= 20 && x < 240\) tubesS3ForcePrevious\(\)/);
 	assert.match(fieldOs, /x >= 240 && x < 460\) tubesS3ForceNext\(\)/);
-	assert.match(fieldOs, /button\(20, 115, 210, 30[\s\S]*button\(250, 115, 210, 30/,
-		'Follower/Master controls must remain compact and above the strip');
-	assert.match(fieldOs, /button\(20, 325, 210, 115[\s\S]*button\(250, 325, 210, 115/,
+	assert.match(fieldOs, /button\(20, 148, 210, 32[\s\S]*button\(250, 148, 210, 32/,
+		'Follower/Master controls must remain compact above the strip');
+	assert.match(fieldOs, /button\(20, 320, 210, 90[\s\S]*button\(250, 320, 210, 90/,
 		'Previous/Next controls must be equal buttons below the strip');
 	assert.match(tubes, /bool s3ForceNext\(\)[\s\S]*controller\.force_next_pattern\(\)/,
 		'Next pattern must not use the generic next scheduled event');

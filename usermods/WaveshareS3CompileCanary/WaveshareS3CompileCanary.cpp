@@ -138,29 +138,25 @@ private:
     // The frame is painted only during initial navigation; periodic preview updates
     // overwrite pixels directly so QSPI never shows a clear-then-draw blink.
     if (drawFrame) {
-      display.drawRoundRect(25, 150, 430, 150, 20, COLOR_SURFACE_RAISED);
+      display.drawRoundRect(25, 190, 430, 92, 14, COLOR_SURFACE_RAISED);
     }
     for (size_t i = 0; i < TUBES_S3_PREVIEW_PIXELS; i++) {
       const int16_t x = 31 + static_cast<int16_t>(i * 7);
-      display.fillRect(x, 156, 6, 138, rgb565(status.preview[i]));
+      display.fillRect(x, 196, 6, 80, rgb565(status.preview[i]));
     }
   }
 
   // Reports synchronization only when accepted state/beat traffic proves it.
   void drawConductorTelemetry(const TubesS3FieldStatus &status) {
-    display.setTextColor(RGB565_WHITE);
-    display.setTextSize(3);
-    display.setCursor(22, 70);
-    display.printf("CURRENT DEVICE  |  %s\n", status.patternName);
-    display.setTextColor(COLOR_MUTED);
-    display.setTextSize(1);
-    display.setCursor(24, 104);
-    display.printf("%s  |  %u BPM  |  beat %u\n",
-                   status.isMaster ? "LEADING" : status.isFollowing ? "FOLLOWING" : "UNLINKED",
-                   status.bpm, status.beat + 1);
-    display.setCursor(24, 123);
-    display.setTextColor(COLOR_MUTED);
-    display.printf("S3 ID %03X  device #%u", status.deviceId, status.deviceNumber);
+    // The card owns the local instrument; peer telemetry is rendered separately below.
+    display.fillRoundRect(20, 70, 440, 72, 14, COLOR_SURFACE);
+    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(32, 80);
+    display.print(F("CURRENT DEVICE"));
+    display.setTextColor(RGB565_WHITE); display.setTextSize(2); display.setCursor(32, 96);
+    display.printf("%s", status.patternName);
+    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(32, 119);
+    display.printf("S3 %03X  |  device #%u  |  %u BPM  |  beat %u", status.deviceId,
+                   status.deviceNumber, status.bpm, status.beat + 1);
     const uint32_t now = millis();
     if (!status.radioReady) {
       display.setTextColor(RGB565_RED);
@@ -191,12 +187,14 @@ private:
     drawBack();
     drawConductorTelemetry(status);
     drawConductorPreview(status, true);
-    button(20, 115, 210, 30, status.isMaster ? COLOR_SURFACE_RAISED : COLOR_PRIMARY, F("Follower"));
-    button(250, 115, 210, 30, status.isMaster ? COLOR_PRIMARY : COLOR_SURFACE_RAISED, F("Master"));
-    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 310);
+    button(20, 148, 210, 32, status.isMaster ? COLOR_SURFACE_RAISED : COLOR_PRIMARY, F("Follower"));
+    button(250, 148, 210, 32, status.isMaster ? COLOR_PRIMARY : COLOR_SURFACE_RAISED, F("Master"));
+    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(30, 184);
+    display.print(F("ALWAYS-RUNNING VIRTUAL STRIP"));
+    display.setCursor(24, 292);
     display.printf("NETWORKED DEVICES  |  %u heard", static_cast<unsigned>(status.peerCount));
-    button(20, 325, 210, 115, COLOR_SURFACE_RAISED, F("Previous pattern"));
-    button(250, 325, 210, 115, COLOR_SURFACE_RAISED, F("Next pattern"));
+    button(20, 320, 210, 90, COLOR_SURFACE_RAISED, F("Previous pattern"));
+    button(250, 320, 210, 90, COLOR_SURFACE_RAISED, F("Next pattern"));
     lastPreviewDraw = millis();
     lastTelemetryDraw = millis();
   }
@@ -208,7 +206,7 @@ private:
     // Unknown RSSI is rendered as -- in the SIGNAL column.
     // candidateKnown != priorKnown; candidate.latestRssi > prior.latestRssi; candidate.nodeId < prior.nodeId; age > 60000.
     // fillRoundRect(22, y, 438, 30) is intentionally replaced by a columnar table.
-    display.fillRect(22, 70, 440, 370, COLOR_BACKGROUND);
+    for (uint8_t row = 0; row < 8; row++) display.fillRect(24, 128 + row * 27, 430, 25, COLOR_BACKGROUND);
     display.setTextColor(COLOR_MINT); display.setTextSize(2); display.setCursor(24, 74);
     // Election truth is the existing node rule: highest canonical ID leads.
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
@@ -324,10 +322,10 @@ private:
       if (y >= 90 && y < 250) nextScreen = x < 240 ? FieldScreen::Conductor : FieldScreen::Surveyor;
       else if (y >= 250 && y < 430) nextScreen = x < 240 ? FieldScreen::Anchor : FieldScreen::Updater;
       action = nextScreen != screen;
-    } else if (screen == FieldScreen::Conductor && y >= 115 && y < 145) {
+    } else if (screen == FieldScreen::Conductor && y >= 148 && y < 180) {
       tubesS3SetMasterAuthority(x >= 240);
       action = true;
-    } else if (screen == FieldScreen::Conductor && y >= 325 && y < 440) {
+    } else if (screen == FieldScreen::Conductor && y >= 320 && y < 410) {
       TubesS3FieldStatus status;
       tubesS3ReadStatus(status);
       if (x >= 20 && x < 240) tubesS3ForcePrevious();
