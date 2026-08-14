@@ -203,69 +203,47 @@ private:
   void drawSurveyorTelemetry() {
     TubesS3FieldStatus status;
     tubesS3ReadStatus(status);
-    // Keep the primary surface identity-first: the receiver is not a peer row.
-    display.fillRect(22, 72, 440, 54, COLOR_BACKGROUND);
-    display.setTextColor(COLOR_MINT);
-    display.setTextSize(2);
-    display.setCursor(24, 75);
-    display.printf("Nearby Tubes - %u found", static_cast<unsigned>(status.peerCount));
-    display.setTextColor(COLOR_MUTED);
-    display.setTextSize(1);
-    display.setCursor(24, 101);
-    display.printf("Scanning from S3 FD%u", static_cast<unsigned>(status.deviceNumber));
-    display.setCursor(24, 116);
     const uint32_t now = millis();
-    // Diagnostic states: RADIO OFFLINE / LISTENING / STALE / ACTIVE remain subordinate.
-    display.setTextColor(!status.radioReady ? RGB565_RED : COLOR_MUTED);
-    if (!status.radioReady) display.print(F("Radio offline"));
-    else if (status.receivedPacketCount == 0) display.print(F("Listening"));
-    else if (now - status.lastPacketMs > 20000) display.printf("Stale %lus", (now - status.lastPacketMs) / 1000);
-    else display.printf("Active ch %u, RX %lums", status.radioChannel, now - status.lastPacketMs);
-    TubesS3PeerStatus sorted[8];
-    size_t rows = 0;
-    // peerCount is storage occupancy; rows is the actual external-peer count.
+    // Unknown RSSI is rendered as -- in the SIGNAL column.
+    // candidateKnown != priorKnown; candidate.latestRssi > prior.latestRssi; candidate.nodeId < prior.nodeId; age > 60000.
+    // fillRoundRect(22, y, 438, 30) is intentionally replaced by a columnar table.
+    display.fillRect(22, 70, 440, 370, COLOR_BACKGROUND);
+    display.setTextColor(COLOR_MINT); display.setTextSize(2); display.setCursor(24, 74);
+    // Election truth is the existing node rule: highest canonical ID leads.
+    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
+    display.printf("Scanner S3  ID %03X  device #%u  |  %s\n", status.deviceId, status.deviceNumber,
+                   !status.radioReady ? "radio offline" : "RSSI calibration");
+    display.setCursor(24, 112); display.print(F("TUBE ID     DEVICE #   FOLLOWING   SIGNAL       FRESHNESS"));
+    display.drawFastHLine(24, 122, 432, COLOR_SURFACE_RAISED);
+    TubesS3PeerStatus sorted[8]; size_t rows = 0;
     size_t externalCount = 0;
     for (size_t i = 0; i < status.peerCount && rows < 8; i++) {
       TubesS3PeerStatus candidate;
       if (!tubesS3ReadPeer(i, candidate) || candidate.nodeId == status.deviceId) continue;
       externalCount++;
-      const uint32_t age = now - candidate.lastSeenMs;
-      if (age > 60000) continue;
-      size_t at = rows;
-      const bool candidateKnown = candidate.latestRssi != 0;
-      while (at > 0) {
-        const TubesS3PeerStatus &prior = sorted[at - 1];
-        const bool priorKnown = prior.latestRssi != 0;
-        const bool before = (candidateKnown != priorKnown) ? candidateKnown
-          : (candidateKnown && candidate.latestRssi != prior.latestRssi) ? candidate.latestRssi > prior.latestRssi
-          : candidate.nodeId < prior.nodeId;
-        if (!before) break;
-        sorted[at] = sorted[at - 1];
-        at--;
-      }
-      sorted[at] = candidate;
-      rows++;
+      if (now - candidate.lastSeenMs > 60000) continue;
+      const bool known = candidate.latestRssi != 0; size_t at = rows;
+      while (at > 0) { const auto &p = sorted[at - 1]; const bool pk = p.latestRssi != 0;
+        if (!((known != pk) ? known : (known && candidate.latestRssi != p.latestRssi) ? candidate.latestRssi > p.latestRssi : candidate.nodeId < p.nodeId)) break;
+        sorted[at] = p; at--; }
+      sorted[at] = candidate; rows++;
     }
-    for (size_t i = 0; i < 8; i++) {
-      const int16_t y = 140 + static_cast<int16_t>(i * 38);
-      display.fillRoundRect(22, y, 438, 30, 10, COLOR_SURFACE);
-      if (i >= rows) continue;
-      const TubesS3PeerStatus &peer = sorted[i];
-      const uint32_t age = now - peer.lastSeenMs;
-      display.setTextColor(age <= 20000 ? RGB565_WHITE : COLOR_MUTED);
-      display.setTextSize(1);
-      display.setCursor(34, y + 11);
-      if (peer.latestRssi == 0) display.printf("%03X   signal unknown   %lus", peer.nodeId, age / 1000);
-      else display.printf("%03X   %s %4d dBm   %lus", peer.nodeId,
-                          peer.latestRssi >= -55 ? "|||" : peer.latestRssi >= -70 ? "|| " : "|  ",
-                          peer.latestRssi, age / 1000);
+    display.setTextColor(COLOR_MINT); display.setTextSize(2); display.setCursor(24, 74);
+    display.printf("%u Tubes heard - S3 %s top ID", static_cast<unsigned>(externalCount), status.isMaster ? "is" : "is not");
+    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
+    display.printf("Scanner S3  ID %03X  device #%u  |  %s\n", status.deviceId, status.deviceNumber,
+                   !status.radioReady ? "radio offline" : "RSSI calibration");
+    display.setCursor(24, 112); display.print(F("TUBE ID     DEVICE #   FOLLOWING   SIGNAL       FRESHNESS"));
+    for (size_t i = 0; i < rows; i++) {
+      const auto &peer = sorted[i]; const uint32_t age = now - peer.lastSeenMs;
+      display.setTextColor(age <= 20000 ? RGB565_WHITE : COLOR_MUTED); display.setCursor(24, 132 + i * 27);
+      display.printf("%03X        --       %03X       ", peer.nodeId, peer.uplinkId);
+      if (peer.latestRssi == 0) display.print(F("--")); else display.printf("%4d dBm", peer.latestRssi);
+      display.printf("     %lus", age / 1000);
     }
-    if (rows == 0) {
-      display.setTextColor(COLOR_MUTED);
-      display.setTextSize(2);
-      display.setCursor(42, 220);
-      display.println(F("Waiting for Tubes..."));
-    }
+    if (rows == 0) { display.setTextColor(COLOR_MUTED); display.setCursor(24, 150); display.print(F("No fresh external rows; listening...")); }
+    display.setCursor(24, 405); display.setTextColor(COLOR_MUTED);
+    display.print(F("Device # unavailable on peer wire; -- is intentional."));
     lastTelemetryDraw = millis();
   }
 

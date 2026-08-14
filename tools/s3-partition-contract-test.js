@@ -197,14 +197,11 @@ test('S3 field telemetry reports real radio, traffic, freshness, and accepted sy
 	assert.match(node, /lastSyncSourceId = message->header\.id/);
 	assert.match(tubes, /status\.radioReady = espnowBroadcast\.isStarted\(\)/);
 	assert.match(tubes, /status\.radioChannel = WiFi\.channel\(\)/);
-	assert.match(fieldOs, /Nearby Tubes - %u found/);
-	assert.match(fieldOs, /Scanning from S3 FD%u/);
-	assert.match(fieldOs, /Radio offline/);
-	assert.match(fieldOs, /Listening/);
-	assert.match(fieldOs, /Stale %lus/);
-	assert.match(fieldOs, /Active ch %u, RX %lums/);
+	assert.match(fieldOs, /TUBE ID     DEVICE #   FOLLOWING   SIGNAL       FRESHNESS/);
+	assert.match(fieldOs, /Device # unavailable on peer wire/);
+	assert.match(fieldOs, /%u Tubes heard - S3 %s top ID/);
 	assert.match(fieldOs, /peer\.latestRssi/);
-	assert.match(fieldOs, /signal unknown/);
+	assert.match(fieldOs, /display\.print\(F\("--"\)\)/);
 	assert.match(fieldOs, /candidate\.nodeId == status\.deviceId/);
 	assert.match(fieldOs, /externalCount/);
 });
@@ -226,8 +223,8 @@ test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern 
 	assert.ok(surveyor, 'missing Surveyor telemetry renderer');
 	assert.doesNotMatch(surveyor[0], /fillRect\(20, 70, 440, 390/,
 		'periodic full-body clearing can leave the AMOLED visually blank');
-	assert.match(surveyor[0], /fillRect\(22, 72, 440, 54/);
-	assert.match(surveyor[0], /fillRoundRect\(22, y, 438, 30/);
+	assert.match(surveyor[0], /TUBE ID     DEVICE #   FOLLOWING   SIGNAL/);
+	assert.match(surveyor[0], /display\.print\(F\("--"\)\)/);
 
 	assert.match(fieldOs, /screen == FieldScreen::Conductor && y >= 325 && y < 440/);
 	assert.match(fieldOs, /x >= 20 && x < 240\) tubesS3ForcePrevious\(\)/);
