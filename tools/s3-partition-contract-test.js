@@ -273,4 +273,11 @@ test('peripheral smoke loop never full-screen repaints and static frame is setup
 	assert.match(smoke, /sampleTouch\(\);/);
 });
 
+test('Surveyor emits bounded machine-readable peer diagnostics', () => {
+	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+	assert.match(fieldOs, /TUBES_SURVEY channel=%u radio=%u local=%03X count=%u peers=/);
+	assert.match(fieldOs, /now - lastPeerDiagnostic >= 5000/);
+	assert.match(fieldOs, /i < status\.peerCount && i < 8/);
+});
+
 // AI: end

@@ -71,6 +71,7 @@ private:
   FieldScreen screen = FieldScreen::Home;
   uint32_t lastPreviewDraw = 0;
   uint32_t lastTelemetryDraw = 0;
+  uint32_t lastPeerDiagnostic = 0;
   bool touchPressed = false;
   uint32_t touchNoiseUntilMs = 0;
   char renderedPattern[TUBES_S3_PATTERN_NAME_LENGTH] = {};
@@ -403,6 +404,23 @@ public:
       }
     }
     const uint32_t now = millis();
+    if (now - lastPeerDiagnostic >= 5000) {
+      lastPeerDiagnostic = now;
+      TubesS3FieldStatus status;
+      tubesS3ReadStatus(status);
+      Serial.printf("TUBES_SURVEY channel=%u radio=%u local=%03X count=%u peers=",
+                    status.radioChannel, status.radioReady ? 1U : 0U, status.deviceId,
+                    static_cast<unsigned>(status.peerCount));
+      bool firstPeer = true;
+      for (size_t i = 0; i < status.peerCount && i < 8; i++) {
+        TubesS3PeerStatus peer;
+        if (!tubesS3ReadPeer(i, peer) || peer.nodeId == status.deviceId) continue;
+        Serial.printf("%s%03X/%03X/%d/%lu", firstPeer ? "" : ",", peer.nodeId, peer.uplinkId,
+                      peer.latestRssi, static_cast<unsigned long>(now - peer.lastSeenMs));
+        firstPeer = false;
+      }
+      Serial.println();
+    }
     if (displayReady && screen == FieldScreen::Conductor && now - lastPreviewDraw >= PREVIEW_INTERVAL_MS) {
       lastPreviewDraw = now;
       TubesS3FieldStatus status;
