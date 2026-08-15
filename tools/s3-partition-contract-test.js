@@ -196,7 +196,10 @@ test('S3 field telemetry reports real radio, traffic, freshness, and accepted sy
 	assert.match(node, /message->command == COMMAND_STATE \|\| message->command == COMMAND_BEATS/);
 	assert.match(node, /lastSyncSourceId = message->header\.id/);
 	assert.match(tubes, /status\.radioReady = espnowBroadcast\.isStarted\(\)/);
-	assert.match(tubes, /status\.radioChannel = WiFi\.channel\(\)/);
+	assert.match(tubes, /status.radioChannel = WiFi\.channel\(\)/);
+	assert.match(api, /uint8_t priority/);
+	assert.match(tubes, /status\.deviceId = controller\.node\.header\.id;[\s\S]*status\.priority = static_cast<uint8_t>\(controller\.role\)/);
+	assert.doesNotMatch(tubes, /status\.deviceNumber/);
 	assert.match(fieldOs, /Remote ID.*Priority.*Following.*RSSI.*Age/);
 	assert.match(fieldOs, /Remote ID.*Priority.*Following.*RSSI.*Age/);
 	assert.match(fieldOs, /%u Tubes heard - S3 %s top ID/);

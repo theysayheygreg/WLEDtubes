@@ -5,7 +5,7 @@ Deterministic, phone-photo-free reference for the Waveshare S3 field remote. `in
 ## Screens and truth boundaries
 - **Home:** Conductor, Surveyor, Anchor, Updater launch targets; field snapshot is explicit.
 - **Conductor:** CURRENT DEVICE is separate from NETWORKED DEVICES. Shows S3 FD2 / device #200, local pattern, virtual strip, follower/master switch, and immediate previous/next controls. Peer 847 is shown as following 000 at −28 dBm, 4s.
-- **Surveyor:** scanner identity is separate from the signal-sorted table. Columns are Tube ID, device number, Following/uplink, signal, age. Unknown values remain `--`; no distance is fabricated.
+- **Surveyor:** scanner identity is separate from the signal-sorted table. Columns are Remote ID, Priority, Following/uplink, signal, age. Peer Priority remains `--` because peer packets do not carry it.
 
 ## Variants
 1. `?variant=1` — dark teal / blue AMOLED, recommended for strongest glanceability.

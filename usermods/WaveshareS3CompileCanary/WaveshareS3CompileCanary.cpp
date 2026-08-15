@@ -165,8 +165,8 @@ private:
     }
     display.fillRect(32, 119, 420, 12, COLOR_SURFACE);
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(32, 119);
-    display.printf("S3 %03X  |  device #%u  |  %u BPM  |  beat %u", status.deviceId,
-                   status.deviceNumber, status.bpm, status.beat + 1);
+    display.printf("S3 Remote ID %03X  |  Priority %u  |  %u BPM  |  beat %u", status.deviceId,
+                   status.priority, status.bpm, status.beat + 1);
     const uint32_t now = millis();
     if (!status.radioReady) {
       display.setTextColor(RGB565_RED);
@@ -206,7 +206,7 @@ private:
     button(353, 92, 88, 64, status.isMaster ? COLOR_PRIMARY : COLOR_SURFACE_RAISED, F("Master"));
     display.setTextColor(RGB565_WHITE); display.setTextSize(2); display.setCursor(125, 84);
     display.printf("%03X", status.deviceId);
-    display.setCursor(125, 108); display.printf("%u", status.deviceNumber);
+    display.setCursor(125, 108); display.printf("%u", status.priority);
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(30, 184);
     display.print(F("ALWAYS-RUNNING VIRTUAL STRIP"));
     drawConductorTelemetry(status);
@@ -230,7 +230,7 @@ private:
     display.setTextColor(COLOR_MINT); display.setTextSize(2); display.setCursor(24, 74);
     // Election truth is the existing node rule: highest canonical ID leads.
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
-    display.printf("Scanner  Remote ID %03X  Priority %u  |  %s\n", status.deviceId, status.deviceNumber,
+    display.printf("Scanner  Remote ID %03X  Priority %u  |  %s\n", status.deviceId, status.priority,
                    !status.radioReady ? "radio offline" : "RSSI calibration");
     display.setCursor(24, 112); display.print(F("Remote ID   Priority   Following   RSSI       Age"));
     display.drawFastHLine(24, 122, 432, COLOR_SURFACE_RAISED);
@@ -250,7 +250,7 @@ private:
     display.setTextColor(COLOR_MINT); display.setTextSize(2); display.setCursor(24, 74);
     display.printf("%u Tubes heard - S3 %s top ID", static_cast<unsigned>(externalCount), status.isMaster ? "is" : "is not");
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
-    display.printf("Scanner  Remote ID %03X  Priority %u  |  %s\n", status.deviceId, status.deviceNumber,
+    display.printf("Scanner  Remote ID %03X  Priority %u  |  %s\n", status.deviceId, status.priority,
                    !status.radioReady ? "radio offline" : "RSSI calibration");
     display.setCursor(24, 112); display.print(F("Remote ID   Priority   Following   RSSI       Age"));
     for (size_t i = 0; i < rows; i++) {
