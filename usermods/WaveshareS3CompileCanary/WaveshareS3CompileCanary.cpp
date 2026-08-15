@@ -71,8 +71,13 @@ private:
   FieldScreen screen = FieldScreen::Home;
   uint32_t lastPreviewDraw = 0;
   uint32_t lastTelemetryDraw = 0;
-  uint32_t lastTouchActionMs = 0;
-  static constexpr uint32_t TOUCH_DEBOUNCE_MS = 350;
+  bool touchPressed = false;
+  uint32_t touchNoiseUntilMs = 0;
+  char renderedPattern[TUBES_S3_PATTERN_NAME_LENGTH] = {};
+  bool renderedMaster = false;
+  bool renderedMasterValid = false;
+  uint32_t touchActionCount = 0;
+  static constexpr uint32_t TOUCH_NOISE_DEBOUNCE_MS = 35;
 
   static constexpr uint16_t COLOR_BACKGROUND = 0x0863;
   static constexpr uint16_t COLOR_SURFACE = 0x10E7;
@@ -148,12 +153,17 @@ private:
 
   // Reports synchronization only when accepted state/beat traffic proves it.
   void drawConductorTelemetry(const TubesS3FieldStatus &status) {
-    // The card owns the local instrument; peer telemetry is rendered separately below.
-    display.fillRoundRect(20, 70, 440, 72, 14, COLOR_SURFACE);
-    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(32, 80);
-    display.print(F("CURRENT DEVICE"));
-    display.setTextColor(RGB565_WHITE); display.setTextSize(2); display.setCursor(32, 96);
-    display.printf("%s", status.patternName);
+    // Dynamic fields own tight rectangles; never clear the enclosing card.
+    if (strcmp(renderedPattern, status.patternName) != 0) {
+      display.fillRect(32, 96, 200, 24, COLOR_SURFACE);
+      display.setTextColor(RGB565_WHITE); display.setTextSize(2); display.setCursor(32, 96);
+      char padded[TUBES_S3_PATTERN_NAME_LENGTH + 1];
+      snprintf(padded, sizeof(padded), "%-20.20s", status.patternName);
+      display.print(padded);
+      strncpy(renderedPattern, status.patternName, sizeof(renderedPattern) - 1);
+      renderedPattern[sizeof(renderedPattern) - 1] = '\0';
+    }
+    display.fillRect(32, 119, 420, 12, COLOR_SURFACE);
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(32, 119);
     display.printf("S3 %03X  |  device #%u  |  %u BPM  |  beat %u", status.deviceId,
                    status.deviceNumber, status.bpm, status.beat + 1);
@@ -185,12 +195,22 @@ private:
     tubesS3ReadStatus(status);
     title(F("Conductor"));
     drawBack();
-    drawConductorTelemetry(status);
-    drawConductorPreview(status, true);
-    button(20, 148, 210, 32, status.isMaster ? COLOR_SURFACE_RAISED : COLOR_PRIMARY, F("Follower"));
-    button(250, 148, 210, 32, status.isMaster ? COLOR_PRIMARY : COLOR_SURFACE_RAISED, F("Master"));
+    display.fillRoundRect(20, 70, 215, 105, 14, COLOR_SURFACE);
+    display.fillRoundRect(245, 70, 215, 105, 14, COLOR_SURFACE);
+    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(32, 80);
+    display.print(F("CURRENT DEVICE"));
+    display.setCursor(32, 84); display.print(F("Remote ID"));
+    display.setCursor(32, 108); display.print(F("Priority"));
+    display.setTextColor(COLOR_MUTED); display.setCursor(257, 80); display.print(F("ROLE"));
+    button(257, 92, 88, 64, status.isMaster ? COLOR_SURFACE_RAISED : COLOR_PRIMARY, F("Follower"));
+    button(353, 92, 88, 64, status.isMaster ? COLOR_PRIMARY : COLOR_SURFACE_RAISED, F("Master"));
+    display.setTextColor(RGB565_WHITE); display.setTextSize(2); display.setCursor(125, 84);
+    display.printf("%03X", status.deviceId);
+    display.setCursor(125, 108); display.printf("%u", status.deviceNumber);
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(30, 184);
     display.print(F("ALWAYS-RUNNING VIRTUAL STRIP"));
+    drawConductorTelemetry(status);
+    drawConductorPreview(status, true);
     display.setCursor(24, 292);
     display.printf("NETWORKED DEVICES  |  %u heard", static_cast<unsigned>(status.peerCount));
     button(20, 320, 210, 90, COLOR_SURFACE_RAISED, F("Previous pattern"));
@@ -210,9 +230,9 @@ private:
     display.setTextColor(COLOR_MINT); display.setTextSize(2); display.setCursor(24, 74);
     // Election truth is the existing node rule: highest canonical ID leads.
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
-    display.printf("Scanner S3  ID %03X  device #%u  |  %s\n", status.deviceId, status.deviceNumber,
+    display.printf("Scanner  Remote ID %03X  Priority %u  |  %s\n", status.deviceId, status.deviceNumber,
                    !status.radioReady ? "radio offline" : "RSSI calibration");
-    display.setCursor(24, 112); display.print(F("TUBE ID     DEVICE #   FOLLOWING   SIGNAL       FRESHNESS"));
+    display.setCursor(24, 112); display.print(F("Remote ID   Priority   Following   RSSI       Age"));
     display.drawFastHLine(24, 122, 432, COLOR_SURFACE_RAISED);
     TubesS3PeerStatus sorted[8]; size_t rows = 0;
     size_t externalCount = 0;
@@ -230,9 +250,9 @@ private:
     display.setTextColor(COLOR_MINT); display.setTextSize(2); display.setCursor(24, 74);
     display.printf("%u Tubes heard - S3 %s top ID", static_cast<unsigned>(externalCount), status.isMaster ? "is" : "is not");
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
-    display.printf("Scanner S3  ID %03X  device #%u  |  %s\n", status.deviceId, status.deviceNumber,
+    display.printf("Scanner  Remote ID %03X  Priority %u  |  %s\n", status.deviceId, status.deviceNumber,
                    !status.radioReady ? "radio offline" : "RSSI calibration");
-    display.setCursor(24, 112); display.print(F("TUBE ID     DEVICE #   FOLLOWING   SIGNAL       FRESHNESS"));
+    display.setCursor(24, 112); display.print(F("Remote ID   Priority   Following   RSSI       Age"));
     for (size_t i = 0; i < rows; i++) {
       const auto &peer = sorted[i]; const uint32_t age = now - peer.lastSeenMs;
       display.setTextColor(age <= 20000 ? RGB565_WHITE : COLOR_MUTED); display.setCursor(24, 132 + i * 27);
@@ -312,45 +332,32 @@ private:
 
   void onTouch(int16_t x, int16_t y) {
     const uint32_t now = millis();
-    if (now - lastTouchActionMs < TOUCH_DEBOUNCE_MS) return;
     FieldScreen nextScreen = screen;
     bool action = false;
     if (screen != FieldScreen::Home && x >= 360 && y <= 75) {
-      nextScreen = FieldScreen::Home;
-      action = true;
+      nextScreen = FieldScreen::Home; action = true;
     } else if (screen == FieldScreen::Home) {
       if (y >= 90 && y < 250) nextScreen = x < 240 ? FieldScreen::Conductor : FieldScreen::Surveyor;
       else if (y >= 250 && y < 430) nextScreen = x < 240 ? FieldScreen::Anchor : FieldScreen::Updater;
       action = nextScreen != screen;
-    } else if (screen == FieldScreen::Conductor && y >= 148 && y < 180) {
-      tubesS3SetMasterAuthority(x >= 240);
-      action = true;
+    } else if (screen == FieldScreen::Conductor && y >= 92 && y < 156 && (x >= 257 && x < 441)) {
+      tubesS3SetMasterAuthority(x >= 353); action = true;
     } else if (screen == FieldScreen::Conductor && y >= 320 && y < 410) {
-      TubesS3FieldStatus status;
-      tubesS3ReadStatus(status);
       if (x >= 20 && x < 240) tubesS3ForcePrevious();
-      else if (x >= 240 && x < 460) tubesS3ForceNext();
+      else if (x >= 250 && x < 460) tubesS3ForceNext();
       else return;
       action = true;
     } else if (screen == FieldScreen::Anchor && y >= 310) {
-      TubesS3RouteStatus route;
-      tubesS3ReadRoute(route);
-      tubesS3SetAnchorAuthority(!route.anchorEnabled);
-      action = true;
+      TubesS3RouteStatus route; tubesS3ReadRoute(route);
+      tubesS3SetAnchorAuthority(!route.anchorEnabled); action = true;
     }
     if (!action) return;
-    lastTouchActionMs = now;
-    if (nextScreen != screen) {
-      screen = nextScreen;
-      draw();
-    } else if (screen == FieldScreen::Conductor) {
-      TubesS3FieldStatus status;
-      tubesS3ReadStatus(status);
-      drawConductorTelemetry(status);
-      drawConductorPreview(status, true);
-    } else if (screen == FieldScreen::Anchor) {
-      drawAnchor();
-    }
+    ++touchActionCount;
+    if (nextScreen != screen) { screen = nextScreen; renderedPattern[0] = '\0'; draw(); }
+    else if (screen == FieldScreen::Conductor) {
+      TubesS3FieldStatus status; tubesS3ReadStatus(status);
+      drawConductorTelemetry(status); drawConductorPreview(status);
+    } else if (screen == FieldScreen::Anchor) drawAnchor();
   }
 
 public:
@@ -379,9 +386,17 @@ public:
   void loop() override {
     if (touchReady && touchInterruptPending) {
       touchInterruptPending = false;
-      int16_t x = -1;
-      int16_t y = -1;
-      if (touch.getPoint(&x, &y, 1) > 0) onTouch(x, y);
+      int16_t x = -1, y = -1;
+      const bool down = touch.getPoint(&x, &y, 1) > 0;
+      const uint32_t now = millis();
+      if (!down) {
+        // A controller-reported release re-arms the next distinct tap.
+        touchPressed = false;
+      } else if (!touchPressed && now >= touchNoiseUntilMs) {
+        touchPressed = true;
+        touchNoiseUntilMs = now + TOUCH_NOISE_DEBOUNCE_MS;
+        onTouch(x, y);
+      }
     }
     const uint32_t now = millis();
     if (displayReady && screen == FieldScreen::Conductor && now - lastPreviewDraw >= PREVIEW_INTERVAL_MS) {

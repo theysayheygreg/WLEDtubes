@@ -152,7 +152,7 @@ test('S3 local instrument observes COMMAND_STATE without mutating its virtual st
 test('S3 master/follower controls do not reboot and redraw is bounded', () => {
 	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
 	assert.doesNotMatch(fieldOs.match(/void onTouch[\s\S]*?\n  \}\n\npublic:/)[0], /ESP\.restart|restart\(/);
-	assert.match(fieldOs, /tubesS3SetMasterAuthority\(x >= 240\)/);
+	assert.match(fieldOs, /tubesS3SetMasterAuthority\(x >= 353\)/);
 	assert.match(fieldOs, /drawConductorTelemetry\(status\);[\s\S]*drawConductorPreview\(status, true\)/);
 });
 
@@ -197,8 +197,8 @@ test('S3 field telemetry reports real radio, traffic, freshness, and accepted sy
 	assert.match(node, /lastSyncSourceId = message->header\.id/);
 	assert.match(tubes, /status\.radioReady = espnowBroadcast\.isStarted\(\)/);
 	assert.match(tubes, /status\.radioChannel = WiFi\.channel\(\)/);
-	assert.match(fieldOs, /TUBE ID     DEVICE #   FOLLOWING   SIGNAL       FRESHNESS/);
-	assert.match(fieldOs, /Device # unavailable on peer wire/);
+	assert.match(fieldOs, /Remote ID.*Priority.*Following.*RSSI.*Age/);
+	assert.match(fieldOs, /Remote ID.*Priority.*Following.*RSSI.*Age/);
 	assert.match(fieldOs, /%u Tubes heard - S3 %s top ID/);
 	assert.match(fieldOs, /peer\.latestRssi/);
 	assert.match(fieldOs, /display\.print\(F\("--"\)\)/);
@@ -223,21 +223,22 @@ test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern 
 	assert.ok(surveyor, 'missing Surveyor telemetry renderer');
 	assert.doesNotMatch(surveyor[0], /fillRect\(20, 70, 440, 390/,
 		'periodic full-body clearing can leave the AMOLED visually blank');
-	assert.match(surveyor[0], /TUBE ID     DEVICE #   FOLLOWING   SIGNAL/);
+	assert.match(surveyor[0], /Remote ID.*Priority.*Following.*RSSI.*Age/);
 	assert.match(surveyor[0], /display\.print\(F\("--"\)\)/);
 
 	assert.match(fieldOs, /screen == FieldScreen::Conductor && y >= 320 && y < 410/);
 	assert.match(fieldOs, /x >= 20 && x < 240\) tubesS3ForcePrevious\(\)/);
-	assert.match(fieldOs, /x >= 240 && x < 460\) tubesS3ForceNext\(\)/);
-	assert.match(fieldOs, /button\(20, 148, 210, 32[\s\S]*button\(250, 148, 210, 32/,
-		'Follower/Master controls must remain compact above the strip');
+	assert.match(fieldOs, /x >= 250 && x < 460\) tubesS3ForceNext\(\)/);
+	assert.match(fieldOs, /button\(257, 92, 88, 64[\s\S]*button\(353, 92, 88, 64/,
+		'Follower/Master controls must remain large and touchable');
 	assert.match(fieldOs, /button\(20, 320, 210, 90[\s\S]*button\(250, 320, 210, 90/,
 		'Previous/Next controls must be equal buttons below the strip');
 	assert.match(tubes, /bool s3ForceNext\(\)[\s\S]*controller\.force_next_pattern\(\)/,
 		'Next pattern must not use the generic next scheduled event');
 	assert.match(tubes, /bool s3ForcePrevious\(\)[\s\S]*controller\.force_previous_pattern\(\)/,
 		'Previous pattern must not use the generic next scheduled event');
-	assert.match(fieldOs, /TOUCH_DEBOUNCE_MS/);
+	assert.match(fieldOs, /touchPressed/);
+	assert.doesNotMatch(fieldOs, /TOUCH_DEBOUNCE_MS/);
 	assert.match(fieldOs, /if \(!action\) return;/);
 	assert.match(fieldOs, /if \(nextScreen != screen\)[\s\S]*?draw\(\);/);
 	assert.doesNotMatch(fieldOs.match(/void onTouch[\s\S]*?\n  \}\n\npublic:/)[0], /\n    draw\(\);\n  \}/,
