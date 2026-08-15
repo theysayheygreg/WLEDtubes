@@ -311,18 +311,14 @@ private:
   void drawUpdater() {
     title(F("Updater"));
     drawBack();
-    display.setTextColor(RGB565_WHITE);
-    display.setTextSize(2);
-    display.setCursor(24, 105);
-    display.println(F("No approved firmware artifacts loaded."));
-    display.setTextSize(1);
-    display.setCursor(24, 175);
-    display.println(F("P2P image transport is not integrated in this build."));
-    display.println(F("No target can be selected, erased or updated here."));
+    drawSurveyorTelemetry();
     display.setTextColor(RGB565_YELLOW);
-    display.setCursor(24, 255);
-    display.println(F("Admission remains blocked until target identity,"));
-    display.println(F("manifest, size and SHA-256 are all proven."));
+    display.setTextSize(1);
+    display.setCursor(24, 430);
+    display.println(F("No approved image loaded - selection and update blocked."));
+    display.setTextColor(COLOR_MUTED);
+    display.setCursor(24, 450);
+    display.println(F("Nearby-device view only; no firmware write path active."));
   }
 
   void draw() {
@@ -434,7 +430,7 @@ public:
         tubesS3ReadStatus(status);
         drawConductorTelemetry(status);
         lastTelemetryDraw = now;
-      } else if (screen == FieldScreen::Surveyor) {
+      } else if (screen == FieldScreen::Surveyor || screen == FieldScreen::Updater) {
         drawSurveyorTelemetry();
       }
     }

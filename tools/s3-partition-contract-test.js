@@ -235,6 +235,19 @@ test('S3 Surveyor includes the current device plus fresh external rows', () => {
 	assert.match(fieldOs, /sorted\[7\]/);
 });
 
+test('S3 Updater starts from the live nearby-device table without enabling writes', () => {
+	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+	const updater = fieldOs.match(/void drawUpdater\(\)[\s\S]*?\n  void draw\(\)/);
+	assert.ok(updater, 'missing Updater renderer');
+	assert.match(updater[0], /drawSurveyorTelemetry\(\)/);
+	assert.match(updater[0], /No approved image loaded - selection and update blocked/);
+	assert.match(updater[0], /Nearby-device view only; no firmware write path active/);
+	assert.match(fieldOs, /screen == FieldScreen::Surveyor \|\| screen == FieldScreen::Updater[\s\S]*drawSurveyorTelemetry\(\)/,
+		'Updater must refresh the same bounded nearby-device list');
+	assert.doesNotMatch(fieldOs.match(/void onTouch[\s\S]*?\n  \}\n\npublic:/)[0], /FieldScreen::Updater[\s\S]*(update|flash|erase)/i,
+		'Updater rows must remain non-actionable until admission is implemented');
+});
+
 test('S3 Surveyor exposes canonical sync-group divergence from uplink IDs', () => {
 	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
 	const node = fs.readFileSync(path.join(root, 'usermods/Tubes/node.h'), 'utf8');
