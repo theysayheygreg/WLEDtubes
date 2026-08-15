@@ -200,10 +200,13 @@ test('S3 field telemetry reports real radio, traffic, freshness, and accepted sy
 	assert.match(api, /uint8_t priority/);
 	assert.match(tubes, /status\.deviceId = controller\.node\.header\.id;[\s\S]*status\.priority = static_cast<uint8_t>\(controller\.role\)/);
 	assert.doesNotMatch(tubes, /status\.deviceNumber/);
-	assert.match(fieldOs, /Remote ID.*Priority.*Following.*Firmware.*RSSI.*Last heard/);
-	assert.match(fieldOs, /versionString/);
-	assert.match(fieldOs, /%-8\.8s/);
-	assert.match(fieldOs, /Following Firmware[\s\S]*peer[\s\S]*F\("  --       "\)/,
+	assert.match(fieldOs, /Remote ID.*Priority.*Following.*Tubes FW.*RSSI.*Last heard/);
+	assert.match(api, /uint16_t tubesVersion/);
+	assert.match(tubes, /status\.tubesVersion = RELEASE_VERSION/);
+	assert.match(fieldOs, /status\.tubesVersion/);
+	assert.doesNotMatch(fieldOs, /versionString/,
+		'WLED base version must not be shown as the Tubes firmware generation');
+	assert.match(fieldOs, /Following Tubes FW[\s\S]*peer[\s\S]*F\("  --       "\)/,
 		'peers without a real advertisement must render unknown firmware');
 	assert.doesNotMatch(fieldOs, /CURRENT_NODE_VERSION[\s\S]*Firmware/,
 		'Tubes protocol version must never be presented as firmware');
@@ -273,7 +276,7 @@ test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern 
 	assert.ok(surveyor, 'missing Surveyor telemetry renderer');
 	assert.doesNotMatch(surveyor[0], /fillRect\(20, 70, 440, 390/,
 		'periodic full-body clearing can leave the AMOLED visually blank');
-	assert.match(surveyor[0], /Remote ID.*Priority.*Following.*Firmware.*RSSI.*Last heard/);
+	assert.match(surveyor[0], /Remote ID.*Priority.*Following.*Tubes FW.*RSSI.*Last heard/);
 	assert.match(surveyor[0], /display\.print\(F\("--"\)\)/);
 	assert.match(surveyor[0], /%lums/);
 	assert.match(surveyor[0], /LOCAL/);

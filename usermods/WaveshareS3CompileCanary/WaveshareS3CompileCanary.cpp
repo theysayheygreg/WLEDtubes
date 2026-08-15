@@ -246,14 +246,14 @@ private:
                    static_cast<unsigned>(rows + 1));
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
     display.printf("Channel %u  |  %s", status.radioChannel, status.radioReady ? "live receiver" : "radio offline");
-    display.setCursor(24, 112); display.print(F("Remote ID Priority Following Firmware RSSI Last heard"));
+    display.setCursor(24, 112); display.print(F("Remote ID Priority Following Tubes FW RSSI Last heard"));
     display.drawFastHLine(24, 122, 432, COLOR_SURFACE_RAISED);
 
     display.setTextColor(COLOR_MINT); display.setCursor(24, 132);
     display.printf("%03X (S3) %3u      ", status.deviceId, status.priority);
     if (status.uplinkId == 0) display.print(F("ROOT/SELF"));
     else display.printf("%03X", status.uplinkId);
-    display.printf("  %-8.8s --   LOCAL", versionString);
+    display.printf("  v%-7u --   LOCAL", static_cast<unsigned>(status.tubesVersion));
 
     for (size_t i = 0; i < rows; i++) {
       const auto &peer = sorted[i]; const uint32_t age = now - peer.lastSeenMs;

@@ -9,6 +9,7 @@ constexpr size_t TUBES_S3_PATTERN_NAME_LENGTH = 24;
 
 struct TubesS3FieldStatus {
   uint16_t deviceId = 0;
+  uint16_t tubesVersion = 0;
   uint8_t priority = 0;
   bool isMaster = false;
   bool isFollowing = false;

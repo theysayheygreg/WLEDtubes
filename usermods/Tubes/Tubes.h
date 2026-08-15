@@ -131,6 +131,7 @@ class TubesUsermod : public Usermod {
     // Supplies the board UI with a fixed-size snapshot of existing Tubes state.
     void readS3FieldStatus(TubesS3FieldStatus &status) const {
       status.deviceId = controller.node.header.id;
+      status.tubesVersion = RELEASE_VERSION;
       status.priority = static_cast<uint8_t>(controller.role);
       status.isMaster = controller.isMasterRole();
       status.isFollowing = controller.node.isFollowing();
