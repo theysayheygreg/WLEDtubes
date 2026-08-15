@@ -224,20 +224,13 @@ private:
     TubesS3FieldStatus status;
     tubesS3ReadStatus(status);
     const uint32_t now = millis();
-    // Unknown RSSI is rendered as -- in the SIGNAL column.
+    // Unknown RSSI is rendered as -- in the RSSI column.
     // candidateKnown != priorKnown; candidate.latestRssi > prior.latestRssi; candidate.nodeId < prior.nodeId; age > 60000.
-    // fillRoundRect(22, y, 438, 30) is intentionally replaced by a columnar table.
+    // The local S3 is always row zero; fresh external peers follow strongest-first.
     for (uint8_t row = 0; row < 8; row++) display.fillRect(24, 128 + row * 27, 430, 25, COLOR_BACKGROUND);
-    display.setTextColor(COLOR_MINT); display.setTextSize(2); display.setCursor(24, 74);
-    // Election truth is the existing node rule: highest canonical ID leads.
-    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
-    display.printf("Scanner  Remote ID %03X  Priority %u  |  %s\n", status.deviceId, status.priority,
-                   !status.radioReady ? "radio offline" : "RSSI calibration");
-    display.setCursor(24, 112); display.print(F("Remote ID   Priority   Following   RSSI       Age"));
-    display.drawFastHLine(24, 122, 432, COLOR_SURFACE_RAISED);
-    TubesS3PeerStatus sorted[8]; size_t rows = 0;
+    TubesS3PeerStatus sorted[7]; size_t rows = 0;
     size_t externalCount = 0;
-    for (size_t i = 0; i < status.peerCount && rows < 8; i++) {
+    for (size_t i = 0; i < status.peerCount && rows < 7; i++) {
       TubesS3PeerStatus candidate;
       if (!tubesS3ReadPeer(i, candidate) || candidate.nodeId == status.deviceId) continue;
       externalCount++;
@@ -249,14 +242,22 @@ private:
       sorted[at] = candidate; rows++;
     }
     display.setTextColor(COLOR_MINT); display.setTextSize(2); display.setCursor(24, 74);
-    display.printf("%u Tubes heard - S3 %s top ID", static_cast<unsigned>(externalCount), status.isMaster ? "is" : "is not");
+    display.printf("%u Tubes heard - %u devices shown", static_cast<unsigned>(externalCount),
+                   static_cast<unsigned>(rows + 1));
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
-    display.printf("Scanner  Remote ID %03X  Priority %u  |  %s\n", status.deviceId, status.priority,
-                   !status.radioReady ? "radio offline" : "RSSI calibration");
+    display.printf("Channel %u  |  %s", status.radioChannel, status.radioReady ? "live receiver" : "radio offline");
     display.setCursor(24, 112); display.print(F("Remote ID   Priority   Following   RSSI       Age"));
+    display.drawFastHLine(24, 122, 432, COLOR_SURFACE_RAISED);
+
+    display.setTextColor(COLOR_MINT); display.setCursor(24, 132);
+    display.printf("%03X (S3)   %3u        ", status.deviceId, status.priority);
+    if (status.uplinkId == 0) display.print(F("ROOT/SELF"));
+    else display.printf("%03X", status.uplinkId);
+    display.print(F("       --         NOW"));
+
     for (size_t i = 0; i < rows; i++) {
       const auto &peer = sorted[i]; const uint32_t age = now - peer.lastSeenMs;
-      display.setTextColor(age <= 20000 ? RGB565_WHITE : COLOR_MUTED); display.setCursor(24, 132 + i * 27);
+      display.setTextColor(age <= 20000 ? RGB565_WHITE : COLOR_MUTED); display.setCursor(24, 159 + i * 27);
       const char *following = peer.uplinkId == status.deviceId ? "THIS" :
                               peer.uplinkId == 0 ? "ROOT/SELF" : "OTHER";
       display.printf("%03X        --       %s", peer.nodeId, following);
@@ -265,9 +266,9 @@ private:
       if (peer.latestRssi == 0) display.print(F("--")); else display.printf("%4d dBm", peer.latestRssi);
       display.printf("     %lus", age / 1000);
     }
-    if (rows == 0) { display.setTextColor(COLOR_MUTED); display.setCursor(24, 150); display.print(F("No fresh external rows; listening...")); }
+    if (rows == 0) { display.setTextColor(COLOR_MUTED); display.setCursor(24, 159); display.print(F("No fresh external rows; listening...")); }
     display.setCursor(24, 405); display.setTextColor(COLOR_MUTED);
-    display.print(F("Device # unavailable on peer wire; -- is intentional."));
+    display.print(F("S3 is shown locally; Tubes heard excludes this row."));
     lastTelemetryDraw = millis();
   }
 

@@ -202,7 +202,11 @@ test('S3 field telemetry reports real radio, traffic, freshness, and accepted sy
 	assert.doesNotMatch(tubes, /status\.deviceNumber/);
 	assert.match(fieldOs, /Remote ID.*Priority.*Following.*RSSI.*Age/);
 	assert.match(fieldOs, /Remote ID.*Priority.*Following.*RSSI.*Age/);
-	assert.match(fieldOs, /%u Tubes heard - S3 %s top ID/);
+	assert.match(fieldOs, /%u Tubes heard - %u devices shown/);
+	assert.match(fieldOs, /%03X \(S3\)   %3u/);
+	assert.match(fieldOs, /status\.uplinkId == 0[\s\S]*ROOT\/SELF/);
+	assert.match(fieldOs, /132\);[\s\S]*159 \+ i \* 27/,
+		'local S3 must occupy row zero and external peers must start on row one');
 	assert.match(fieldOs, /peer\.latestRssi/);
 	assert.match(fieldOs, /display\.print\(F\("--"\)\)/);
 	assert.match(fieldOs, /candidate\.nodeId == status\.deviceId/);
@@ -216,6 +220,14 @@ test('S3 Surveyor sorts fresh known RSSI before unknown and ties by device ID', 
 	assert.match(fieldOs, /candidate\.nodeId < prior\.nodeId/);
 	assert.match(fieldOs, /candidate\.nodeId == status\.deviceId/);
 	assert.match(fieldOs, /age > 60000/);
+});
+
+test('S3 Surveyor includes the current device plus fresh external rows', () => {
+	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+	assert.match(fieldOs, /The local S3 is always row zero/);
+	assert.match(fieldOs, /static_cast<unsigned>\(rows \+ 1\)/);
+	assert.match(fieldOs, /S3 is shown locally; Tubes heard excludes this row/);
+	assert.match(fieldOs, /sorted\[7\]/);
 });
 
 test('S3 Surveyor exposes canonical sync-group divergence from uplink IDs', () => {
