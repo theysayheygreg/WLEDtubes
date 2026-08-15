@@ -246,14 +246,14 @@ private:
                    static_cast<unsigned>(rows + 1));
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(24, 98);
     display.printf("Channel %u  |  %s", status.radioChannel, status.radioReady ? "live receiver" : "radio offline");
-    display.setCursor(24, 112); display.print(F("Remote ID   Priority   Following   RSSI       Age"));
+    display.setCursor(24, 112); display.print(F("Remote ID   Priority   Following   RSSI    Last heard"));
     display.drawFastHLine(24, 122, 432, COLOR_SURFACE_RAISED);
 
     display.setTextColor(COLOR_MINT); display.setCursor(24, 132);
     display.printf("%03X (S3)   %3u        ", status.deviceId, status.priority);
     if (status.uplinkId == 0) display.print(F("ROOT/SELF"));
     else display.printf("%03X", status.uplinkId);
-    display.print(F("       --         NOW"));
+    display.print(F("       --      LOCAL"));
 
     for (size_t i = 0; i < rows; i++) {
       const auto &peer = sorted[i]; const uint32_t age = now - peer.lastSeenMs;
@@ -264,7 +264,7 @@ private:
       if (peer.uplinkId != status.deviceId && peer.uplinkId != 0) display.printf("(%03X)", peer.uplinkId);
       display.print(F("       "));
       if (peer.latestRssi == 0) display.print(F("--")); else display.printf("%4d dBm", peer.latestRssi);
-      display.printf("     %lus", age / 1000);
+      display.printf("     %lums", static_cast<unsigned long>(age));
     }
     if (rows == 0) { display.setTextColor(COLOR_MUTED); display.setCursor(24, 159); display.print(F("No fresh external rows; listening...")); }
     display.setCursor(24, 405); display.setTextColor(COLOR_MUTED);

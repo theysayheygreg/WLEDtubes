@@ -200,8 +200,7 @@ test('S3 field telemetry reports real radio, traffic, freshness, and accepted sy
 	assert.match(api, /uint8_t priority/);
 	assert.match(tubes, /status\.deviceId = controller\.node\.header\.id;[\s\S]*status\.priority = static_cast<uint8_t>\(controller\.role\)/);
 	assert.doesNotMatch(tubes, /status\.deviceNumber/);
-	assert.match(fieldOs, /Remote ID.*Priority.*Following.*RSSI.*Age/);
-	assert.match(fieldOs, /Remote ID.*Priority.*Following.*RSSI.*Age/);
+	assert.match(fieldOs, /Remote ID.*Priority.*Following.*RSSI.*Last heard/);
 	assert.match(fieldOs, /%u Tubes heard - %u devices shown/);
 	assert.match(fieldOs, /%03X \(S3\)   %3u/);
 	assert.match(fieldOs, /status\.uplinkId == 0[\s\S]*ROOT\/SELF/);
@@ -255,8 +254,13 @@ test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern 
 	assert.ok(surveyor, 'missing Surveyor telemetry renderer');
 	assert.doesNotMatch(surveyor[0], /fillRect\(20, 70, 440, 390/,
 		'periodic full-body clearing can leave the AMOLED visually blank');
-	assert.match(surveyor[0], /Remote ID.*Priority.*Following.*RSSI.*Age/);
+	assert.match(surveyor[0], /Remote ID.*Priority.*Following.*RSSI.*Last heard/);
 	assert.match(surveyor[0], /display\.print\(F\("--"\)\)/);
+	assert.match(surveyor[0], /%lums/);
+	assert.match(surveyor[0], /LOCAL/);
+	assert.match(fieldOs, /SAMPLE_INTERVAL_MS = 500/);
+	assert.match(fieldOs, /screen == FieldScreen::Surveyor[\s\S]*drawSurveyorTelemetry\(\)/,
+		'Surveyor must refresh its bounded table while open');
 
 	assert.match(fieldOs, /screen == FieldScreen::Conductor && y >= 320 && y < 410/);
 	assert.match(fieldOs, /x >= 20 && x < 240\) tubesS3ForcePrevious\(\)/);
