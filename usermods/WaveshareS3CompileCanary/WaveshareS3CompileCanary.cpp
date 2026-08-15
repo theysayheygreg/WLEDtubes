@@ -256,7 +256,11 @@ private:
     for (size_t i = 0; i < rows; i++) {
       const auto &peer = sorted[i]; const uint32_t age = now - peer.lastSeenMs;
       display.setTextColor(age <= 20000 ? RGB565_WHITE : COLOR_MUTED); display.setCursor(24, 132 + i * 27);
-      display.printf("%03X        --       %03X       ", peer.nodeId, peer.uplinkId);
+      const char *following = peer.uplinkId == status.deviceId ? "THIS" :
+                              peer.uplinkId == 0 ? "ROOT/SELF" : "OTHER";
+      display.printf("%03X        --       %s", peer.nodeId, following);
+      if (peer.uplinkId != status.deviceId && peer.uplinkId != 0) display.printf("(%03X)", peer.uplinkId);
+      display.print(F("       "));
       if (peer.latestRssi == 0) display.print(F("--")); else display.printf("%4d dBm", peer.latestRssi);
       display.printf("     %lus", age / 1000);
     }

@@ -218,10 +218,27 @@ test('S3 Surveyor sorts fresh known RSSI before unknown and ties by device ID', 
 	assert.match(fieldOs, /age > 60000/);
 });
 
+test('S3 Surveyor exposes canonical sync-group divergence from uplink IDs', () => {
+	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
+	const node = fs.readFileSync(path.join(root, 'usermods/Tubes/node.h'), 'utf8');
+	assert.match(node, /onEspNowObserver[\s\S]*len != sizeof\(NodeMessage\)/);
+	assert.match(node, /header\.version != CURRENT_NODE_VERSION/);
+	assert.match(fieldOs, /peer\.uplinkId == status\.deviceId \? "THIS"/);
+	assert.ok(fieldOs.includes('peer.uplinkId == 0 ? "ROOT/SELF"'));
+	assert.match(fieldOs, /"OTHER"/);
+	assert.ok(fieldOs.includes('display.printf("(%03X)", peer.uplinkId)'));
+});
+
+test('S3 observer precedes routing filter and channel lock has readback', () => {
+	const radio = fs.readFileSync(path.join(root, 'wled00/espnow_broadcast.cpp'), 'utf8');
+	assert.ok(radio.indexOf('_rxObserver(mac, data, len, rssi)') < radio.indexOf('_rxFilter(mac, data, len, rssi)'));
+	assert.match(radio, /WiFi\.disconnect\(false, true\)/);
+	assert.match(radio, /esp_wifi_set_channel\(1, WIFI_SECOND_CHAN_NONE\)/);
+	assert.match(radio, /esp_wifi_get_channel\(&channel/);
+});
 test('S3 Surveyor redraw stays bounded and Conductor touch invokes next-pattern semantics', () => {
 	const tubes = fs.readFileSync(path.join(root, 'usermods/Tubes/Tubes.h'), 'utf8');
 	const fieldOs = fs.readFileSync(path.join(root, 'usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp'), 'utf8');
-
 	const surveyor = fieldOs.match(/void drawSurveyorTelemetry\(\)[\s\S]*?\n  void drawSurveyor\(\)/);
 	assert.ok(surveyor, 'missing Surveyor telemetry renderer');
 	assert.doesNotMatch(surveyor[0], /fillRect\(20, 70, 440, 390/,

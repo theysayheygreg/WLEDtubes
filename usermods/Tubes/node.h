@@ -333,6 +333,7 @@ class LightNode {
 #endif
 
         espnowBroadcast.registerFilter(onEspNowFilter);
+        espnowBroadcast.registerObserver(onEspNowObserver);
         espnowBroadcast.registerCallback(onEspNowMessage);
 
         Serial.println("setup: ok");
@@ -545,6 +546,14 @@ protected:
 #endif
             }
         }
+    }
+
+    // Observe protocol-v2 state before routing/application admission can discard it.
+    static void onEspNowObserver(const uint8_t *address, const uint8_t *msg, uint8_t len, int8_t rssi) {
+        if (!instance || !msg || len != sizeof(NodeMessage)) return;
+        const NodeMessage *message = reinterpret_cast<const NodeMessage *>(msg);
+        if (message->header.version != CURRENT_NODE_VERSION || message->header.id == instance->header.id) return;
+        instance->peerTelemetry.observe(message->header.id, message->header.uplinkId, rssi, millis());
     }
 
     static bool onEspNowFilter(const uint8_t *address, const uint8_t *msg, uint8_t len, int8_t rssi) {
