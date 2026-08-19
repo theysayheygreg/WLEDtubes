@@ -239,6 +239,28 @@ class WaveshareS3TubesPrototype : public Usermod {
       DEBUG_PRINTLN(touchReady ? F("Waveshare S3: touch ready") : F("Waveshare S3: touch unavailable"));
     }
 
+  public:
+    // Prints a machine-readable mirror of the on-glass state so a host can
+    // reconstruct the screen without panel readback (write-only QSPI).
+    void dumpScreenState() {
+      Serial.print(F("WSS3-DUMP screen="));
+      if (screen == FieldScreen::Home) Serial.print(F("HOME"));
+      else if (screen == FieldScreen::Conductor) Serial.print(F("CONDUCTOR"));
+      else if (screen == FieldScreen::Surveyor) Serial.print(F("SURVEYOR"));
+      else Serial.print(F("UPDATER"));
+      Serial.printf(" touch=%d power=%d imu=%d wifich=%u touchx=%d touchy=%d\n",
+        touchReady, powerMonitorPresent, imuPresent,
+        static_cast<unsigned>(WiFi.channel()), lastTouchX, lastTouchY);
+      Bus *bus = BusManager::getBus(0);
+      Serial.print(F("WSS3-PIXELS "));
+      if (bus) {
+        const uint16_t count = bus->getLength() < PREVIEW_PIXELS ? bus->getLength() : PREVIEW_PIXELS;
+        for (uint16_t index = 0; index < count; index++) Serial.printf("%06x ", bus->getPixelColor(index) & 0xFFFFFF);
+      }
+      Serial.println();
+      Serial.println(F("WSS3-DUMP-END"));
+    }
+
     void loop() override {
       if (!displayReady) return;
 
@@ -252,6 +274,12 @@ class WaveshareS3TubesPrototype : public Usermod {
 
 static WaveshareS3TubesPrototype waveshareS3TubesPrototype;
 REGISTER_USERMOD(waveshareS3TubesPrototype);
+} // namespace
+
+// Strong definition for the weak hook consumed by the Tubes 'S' keyboard command.
+extern "C" void wss3DumpScreenState() { waveshareS3TubesPrototype.dumpScreenState(); }
+
+namespace {
 } // namespace
 
 // Retained as a build-contract symbol for the existing target verification.

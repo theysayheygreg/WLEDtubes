@@ -1,5 +1,7 @@
 #pragma once
 
+extern "C" void wss3DumpScreenState() __attribute__((weak));
+
 #include <EEPROM.h>
 #include "wled.h"
 #include "FX.h"
@@ -1544,6 +1546,12 @@ class PatternController : public MessageReceiver {
     char key = command[0];
     if (!key)
       return;
+
+    if (key == 'S') {
+      // Screen-state mirror dump; provided by the Waveshare S3 usermod when built.
+      if (wss3DumpScreenState) wss3DumpScreenState();
+      return;
+    }
 
     if (key == DEVICE_REPORT_ACTION_KEY) {
       requestDeviceReport(command + 1);
