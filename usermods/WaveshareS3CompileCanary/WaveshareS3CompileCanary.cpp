@@ -42,7 +42,10 @@ enum class FieldScreen : uint8_t { Home, Conductor, Surveyor, Updater };
 
 Arduino_ESP32QSPI displayBus(DISPLAY_CS, DISPLAY_SCLK, DISPLAY_SDIO0, DISPLAY_SDIO1,
                              DISPLAY_SDIO2, DISPLAY_SDIO3);
-Arduino_CO5300 display(&displayBus, DISPLAY_RESET, 0, DISPLAY_WIDTH, DISPLAY_HEIGHT, 0, 0, 0, 0);
+// NOTE: Arduino_GFX v1.4.9's constructor takes an extra `ips` bool that newer
+// versions dropped. Omitting it shifts every argument: width lands in `ips`,
+// height becomes 0, and the panel silently draws nothing.
+Arduino_CO5300 display(&displayBus, DISPLAY_RESET, 0, false, DISPLAY_WIDTH, DISPLAY_HEIGHT, 0, 0, 0, 0);
 TouchDrvCST92xx touch;
 
 class BoardI2cOwner {
@@ -207,7 +210,10 @@ class WaveshareS3TubesPrototype : public Usermod {
     void setup() override {
       boardI2c.begin();
 
+      Serial.println(F("WSS3-DISPLAY: begin()"));
       displayReady = display.begin();
+      Serial.print(F("WSS3-DISPLAY: begin -> "));
+      Serial.println(displayReady ? F("OK") : F("FAILED"));
       if (!displayReady) {
         DEBUG_PRINTLN(F("Waveshare S3: display initialization failed"));
         return;
