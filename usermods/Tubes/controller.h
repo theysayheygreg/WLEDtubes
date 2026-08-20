@@ -1509,16 +1509,15 @@ class PatternController : public MessageReceiver {
       return;
 
     char c = Serial.read();
-    char *k = key_buffer;
-    uint8_t max = sizeof(key_buffer);
-    for (uint8_t i = 0; *k && i < max - 1; i++)
-      k++;
+    size_t len = strnlen(key_buffer, sizeof(key_buffer) - 1);
     if (c == '\n') {
       keyboard_command(key_buffer);
       key_buffer[0] = 0;
-    } else {
-      *k++ = c;
-      *k = 0;
+    } else if (len < sizeof(key_buffer) - 1) {
+      // Leave room for the terminator; drop excess characters instead of
+      // writing past the buffer (which used to zero pendingTubesMode).
+      key_buffer[len] = c;
+      key_buffer[len + 1] = 0;
     }
   }
 

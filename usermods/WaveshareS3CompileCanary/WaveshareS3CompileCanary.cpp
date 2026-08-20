@@ -126,7 +126,7 @@ class WaveshareS3TubesPrototype : public Usermod {
       display.setTextSize(2);
       display.setCursor(24, 132);
       if (screen == FieldScreen::Home) {
-        display.printf("Display ready: yes\nTouch ready: %s\nPower monitor: %s\nIMU: %s\nRadio: %s ch %u",
+        display.printf("Display init: sent (write-only bus)\nTouch ready: %s\nPower monitor: %s\nIMU: %s\nRadio: %s ch %u",
           touchReady ? "yes" : "no", powerMonitorPresent ? "observed" : "not found",
           imuPresent ? "observed" : "not found", WiFi.status() == WL_CONNECTED ? "connected" : "idle",
           static_cast<unsigned>(WiFi.channel()));
@@ -160,13 +160,13 @@ class WaveshareS3TubesPrototype : public Usermod {
       if (!bus) return;
 
       constexpr int16_t left = 30;
-      constexpr int16_t top = 178;
+      constexpr int16_t top = 252;
       constexpr int16_t cell = 21;
       constexpr int16_t gap = 3;
       constexpr uint16_t columns = 15;
 
       if (previewInvalid) {
-        display.fillRect(20, top - 34, 440, 200, RGB565_BLACK);
+        display.fillRect(20, top - 34, 440, DISPLAY_HEIGHT - (top - 34), RGB565_BLACK);
         display.setCursor(left, top - 30);
         display.setTextSize(2);
         display.setTextColor(RGB565_WHITE);
@@ -208,6 +208,10 @@ class WaveshareS3TubesPrototype : public Usermod {
   public:
     // Initializes only the screen and touch surface; Tubes remains authority-neutral.
     void setup() override {
+      // Claim the display/touch/I2C pins with WLED's PinManager so a user can't
+      // assign a button/relay/LED output onto the live QSPI or I2C bus from the UI.
+      { const int8_t owned[] = {DISPLAY_CS, DISPLAY_SCLK, DISPLAY_SDIO0, DISPLAY_SDIO1, DISPLAY_SDIO2, DISPLAY_SDIO3, DISPLAY_RESET, PERIPHERAL_SDA, PERIPHERAL_SCL, TOUCH_IRQ, TOUCH_RESET};
+        PinManager::allocateMultiplePins(owned, sizeof(owned), PinOwner::UM_Unspecified, true); }
       boardI2c.begin();
 
       Serial.println(F("WSS3-DISPLAY: begin()"));
