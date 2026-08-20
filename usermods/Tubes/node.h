@@ -48,6 +48,19 @@ class LightNode {
     MessageReceiver *receiver;
     MeshNodeHeader header;
     PeerTelemetry peerTelemetry;
+
+    // RX-callback → loop handoff: onEspNowObserver runs on the WiFi task, so it only
+    // stages samples here; update() on the Tubes loop task is the sole observe() caller.
+    // Single producer (RX) / single consumer (loop); a full ring drops the sample.
+    struct PeerSample {
+        uint16_t nodeId;
+        uint16_t uplinkId;
+        int8_t rssi;
+    };
+    static constexpr uint8_t PEER_SAMPLE_RING_SIZE = 16;
+    PeerSample peerSampleRing[PEER_SAMPLE_RING_SIZE];
+    volatile uint8_t peerSampleHead = 0;  // written by the RX callback only
+    volatile uint8_t peerSampleTail = 0;  // written by the loop task only
     uint32_t receivedPacketCount = 0;
     uint32_t lastPacketMs = 0;
     uint32_t synchronizedPacketCount = 0;
@@ -327,6 +340,13 @@ class LightNode {
         //process any wifi events to turn on/off ESPNode
         updateESPNowState();
 
+        // Drain RX-task peer samples; this loop task is the only observe() caller.
+        while (peerSampleTail != peerSampleHead) {
+            const PeerSample &sample = peerSampleRing[peerSampleTail];
+            peerTelemetry.observe(sample.nodeId, sample.uplinkId, sample.rssi, millis());
+            peerSampleTail = (peerSampleTail + 1) % PEER_SAMPLE_RING_SIZE;
+        }
+
         // Check the last time we heard from the uplink node
         if (isFollowing() && uplinkTimer.ended()) {
             follow(NULL);
@@ -536,7 +556,12 @@ protected:
         if (!instance || !msg || len != sizeof(NodeMessage)) return;
         const NodeMessage *message = reinterpret_cast<const NodeMessage *>(msg);
         if (message->header.version != CURRENT_NODE_VERSION || message->header.id == instance->header.id) return;
-        instance->peerTelemetry.observe(message->header.id, message->header.uplinkId, rssi, millis());
+        // WiFi-task context: stage the sample; never touch the peer table here.
+        const uint8_t head = instance->peerSampleHead;
+        const uint8_t next = (head + 1) % PEER_SAMPLE_RING_SIZE;
+        if (next == instance->peerSampleTail) return;  // ring full: drop the sample
+        instance->peerSampleRing[head] = {message->header.id, message->header.uplinkId, rssi};
+        instance->peerSampleHead = next;
     }
 
     static bool onEspNowFilter(const uint8_t *address, const uint8_t *msg, uint8_t len, int8_t rssi) {
