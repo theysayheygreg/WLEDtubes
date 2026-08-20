@@ -238,6 +238,7 @@ private:
     }
   }
 
+  // Full-screen redraw stalls loop() ~90ms on a nav tap; incremental redraw is the known future fix.
   void drawConductor() {
     TubesS3FieldStatus status;
     tubesS3ReadStatus(status);
@@ -282,8 +283,9 @@ private:
     tubesS3ReadStatus(status);
     const uint32_t now = millis();
     // Unknown RSSI is rendered as -- in the RSSI column.
-    // candidateKnown != priorKnown; candidate.latestRssi > prior.latestRssi; candidate.nodeId < prior.nodeId; age > 60000.
+    // Rows sort known-RSSI first, then strongest signal, then lowest node id; peers unheard for 60s drop out.
     // The local S3 is always row zero; fresh external peers follow strongest-first.
+    // Full-screen refresh here stalls loop() ~30-40ms every 500ms; incremental redraw is the known future fix.
     for (uint8_t row = 0; row < 8; row++) display.fillRect(24, 128 + row * 27, 430, 25, COLOR_BACKGROUND);
     TubesS3PeerStatus sorted[7]; size_t rows = 0;
     size_t externalCount = 0;
@@ -398,19 +400,30 @@ private:
     if (screen != FieldScreen::Home && x >= 360 && y <= 75) {
       nextScreen = FieldScreen::Home; action = true;
     } else if (screen == FieldScreen::Home) {
-      if (y >= 90 && y < 250) nextScreen = x < 240 ? FieldScreen::Conductor : FieldScreen::Surveyor;
-      else if (y >= 250 && y < 430) nextScreen = x < 240 ? FieldScreen::Anchor : FieldScreen::Updater;
+      // Hit rects match the drawn 210x164 buttons; taps in the gaps do nothing.
+      const bool leftColumn = x >= 20 && x < 230;
+      const bool rightColumn = x >= 250 && x < 460;
+      if (y >= 84 && y < 248) {
+        if (leftColumn) nextScreen = FieldScreen::Conductor;
+        else if (rightColumn) nextScreen = FieldScreen::Surveyor;
+      } else if (y >= 268 && y < 432) {
+        if (leftColumn) nextScreen = FieldScreen::Anchor;
+        else if (rightColumn) nextScreen = FieldScreen::Updater;
+      }
       action = nextScreen != screen;
     } else if (screen == FieldScreen::Conductor && y >= 92 && y < 156 && (x >= 257 && x < 441)) {
-      action = tubesS3SetMasterAuthority(x >= 353);
+      // Follow/Master hit rects match the drawn 88px buttons; the gap does nothing.
+      if (x < 345) action = tubesS3SetMasterAuthority(false);
+      else if (x >= 353) action = tubesS3SetMasterAuthority(true);
     } else if (screen == FieldScreen::Conductor && y >= 320 && y < 410) {
       TubesS3FieldStatus btnStatus; tubesS3ReadStatus(btnStatus);
       if (!btnStatus.isMaster) { nextScreen = screen; return; }
-      if (x >= 20 && x < 240) tubesS3ForcePrevious();
+      if (x >= 20 && x < 230) tubesS3ForcePrevious();
       else if (x >= 250 && x < 460) tubesS3ForceNext();
       else return;
       action = true;
-    } else if (screen == FieldScreen::Anchor && y >= 310) {
+    } else if (screen == FieldScreen::Anchor && x >= 40 && x < 440 && y >= 325 && y < 425) {
+      // Hit rect matches the drawn 400x100 anchor button.
       TubesS3RouteStatus route; tubesS3ReadRoute(route);
       tubesS3SetAnchorAuthority(!route.anchorEnabled); action = true;
     }
@@ -524,18 +537,19 @@ public:
       case 'n':
       case 'N':
         tubesS3ForceNext();
-        Serial.printf("[bench] force_next\n");
+        Serial.println(F("[bench] force_next"));
         break;
       case 'p':
       case 'P':
         tubesS3ForcePrevious();
-        Serial.printf("[bench] force_previous\n");
+        Serial.println(F("[bench] force_previous"));
         break;
       case 'm':
       case 'M': {
         tubesS3ReadStatus(status);
         tubesS3SetMasterAuthority(!status.isMaster);
-        Serial.printf("[bench] master -> %s\n", status.isMaster ? "off" : "on");
+        Serial.print(F("[bench] master -> "));
+        Serial.println(status.isMaster ? F("off") : F("on"));
         break;
       }
       case 'a':
@@ -543,13 +557,14 @@ public:
         TubesS3RouteStatus route;
         tubesS3ReadRoute(route);
         tubesS3SetAnchorAuthority(!route.anchorEnabled);
-        Serial.printf("[bench] anchor toggle (result calls the gated path)\n");
+        Serial.println(F("[bench] anchor toggle (result calls the gated path)"));
         break;
       }
       case 's':
       case 'S':
         tubesS3ReadStatus(status);
-        Serial.printf("[bench] dev=%03X version=%u master=%d following=%d radio=%d ch=%u "
+        Serial.print(F("[bench] "));
+        Serial.printf("dev=%03X version=%u master=%d following=%d radio=%d ch=%u "
                       "pattern=%u/%u bpm=%u peers=%u up=%03X lastRx=%lums\n",
                       status.deviceId, status.tubesVersion, status.isMaster, status.isFollowing,
                       status.radioReady, status.radioChannel, status.patternId, status.paletteId,
@@ -558,13 +573,14 @@ public:
         for (size_t i = 0; i < status.peerCount && i < 8; i++) {
           TubesS3PeerStatus peer;
           if (!tubesS3ReadPeer(i, peer) || peer.nodeId == status.deviceId) continue;
-          Serial.printf("[bench] peer %03X up=%03X rssi=%d age=%lums\n", peer.nodeId,
+          Serial.print(F("[bench] "));
+          Serial.printf("peer %03X up=%03X rssi=%d age=%lums\n", peer.nodeId,
                         peer.uplinkId, peer.latestRssi, static_cast<unsigned long>(millis() - peer.lastSeenMs));
         }
         break;
       case 'h':
       case 'H':
-        Serial.println("[bench] n=next p=prev m=master-toggle a=anchor-toggle s=state h=help");
+        Serial.println(F("[bench] n=next p=prev m=master-toggle a=anchor-toggle s=state h=help"));
         break;
       default:
         break;
