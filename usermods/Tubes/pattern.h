@@ -260,6 +260,25 @@ PatternDef gPatterns[] = {
 */
 const uint8_t gPatternCount = ARRAY_SIZE(gPatterns);
 
+// Resolves the human-facing name from the same registry that selects the renderer.
+void getPatternName(uint8_t patternId, char *name, size_t nameLength) {
+  if (name == nullptr || nameLength == 0) return;
+  name[0] = '\0';
+  if (patternId >= gPatternCount) {
+    strncpy(name, "Unknown", nameLength);
+  } else if (patternId < numInternalPatterns) {
+    const char *internalName = "Noise";
+    if (patternId == 7 || patternId == 8 || patternId == 17 || patternId == 18) internalName = "Confetti";
+    else if (patternId == 9 || patternId == 19) internalName = "Juggle";
+    else if (patternId == 20 || patternId == 21) internalName = "Palette wave";
+    else if (patternId == 22 || patternId == 23) internalName = "BPM palette";
+    strncpy(name, internalName, nameLength);
+  } else {
+    extractModeName(gPatterns[patternId].wled_fx_id, JSON_mode_names, name, nameLength);
+  }
+  name[nameLength - 1] = '\0';
+}
+
 /*
 
 WLED OK not great:

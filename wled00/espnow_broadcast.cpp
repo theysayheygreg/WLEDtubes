@@ -84,6 +84,7 @@ class ESPNOWBroadcastImpl : public ESPNOWBroadcast {
     static void onESPNowRxCallback(const uint8_t *mac_addr, const uint8_t *data, int len);
 
     receive_filter_t _rxFilter = nullptr;
+    receive_observer_t _rxObserver = nullptr;
 
 #ifdef ESPNOW_DEBUG_COUNTERS
     std::atomic<uint32_t> _received {0};
@@ -365,6 +366,16 @@ ESPNOWBroadcast::receive_filter_t ESPNOWBroadcast::registerFilter( ESPNOWBroadca
 #endif
 }
 
+ESPNOWBroadcast::receive_observer_t ESPNOWBroadcast::registerObserver( ESPNOWBroadcast::receive_observer_t observer ) {
+#ifdef ESP32
+    auto old = espnowBroadcastImpl._rxObserver;
+    espnowBroadcastImpl._rxObserver = observer;
+    return old;
+#else
+    return nullptr;
+#endif
+}
+
 
 #ifdef ESP32
 
@@ -545,6 +556,10 @@ void ESPNOWBroadcastImpl::onESPNowRxCallback(const uint8_t *mac, const uint8_t *
     const wifi_promiscuous_pkt_t* promiscuous_pkt = (wifi_promiscuous_pkt_t*)(data - sizeof (wifi_pkt_rx_ctrl_t) - sizeof (espnow_rx_frame_format_t));
     auto rssi32 = promiscuous_pkt->rx_ctrl.rssi;
     int8_t rssi = rssi32 <= -128 ? -127 : rssi32 > 0 ? 0 : rssi32;
+
+    if (espnowBroadcastImpl._rxObserver) {
+        espnowBroadcastImpl._rxObserver(mac, data, len, rssi);
+    }
 
     if (espnowBroadcastImpl._rxFilter) {
         if (!espnowBroadcastImpl._rxFilter(mac, data, len, rssi)) {

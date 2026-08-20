@@ -50,6 +50,8 @@ class ESPNOWBroadcast {
     // processed by future callbacks
     typedef bool (*receive_filter_t)(const uint8_t *sender, const uint8_t *data, uint8_t len, int8_t rssi);
     receive_filter_t registerFilter( receive_filter_t filter = nullptr );
+    typedef void (*receive_observer_t)(const uint8_t *sender, const uint8_t *data, uint8_t len, int8_t rssi);
+    receive_observer_t registerObserver( receive_observer_t observer = nullptr );
 
 
     enum STATE {

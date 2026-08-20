@@ -15,6 +15,7 @@
 #include "node.h"
 #include "deferred_bpm_broadcast.h"
 #include "device_report_protocol.h"
+#include "experiment_overlay.h"
 
 // Screen-state mirror dump, provided by the Waveshare S3 usermod when built (weak: null elsewhere).
 extern "C" void wss3DumpScreenState() __attribute__((weak));
@@ -292,6 +293,15 @@ class PatternController : public MessageReceiver {
     // When a pattern is boring, spice it up a bit with more effects
     bool isBoring = false;
 
+#ifdef TUBES_ENABLE_HELLO_VFX
+    TubesExperiment::HelloOverlay helloOverlay;
+    bool helloActive = false;
+#endif
+#ifdef TUBES_ENABLE_SPATIAL_PATTERNS
+    TubesExperiment::SpatialMode spatialMode = TubesExperiment::SpatialMode::Off;
+#endif
+    TubesExperiment::ExperimentOverlay experimentOverlay;
+
   PatternController() : node(this) {
 #ifdef USELCD
     lcd = new Lcd();
@@ -403,6 +413,9 @@ class PatternController : public MessageReceiver {
 #if defined(MASTER)
     role = MasterRole;
 #endif
+#endif
+#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
+    node.setMobileConductorAuthority(role >= MasterRole);
 #endif
     Serial.printf("Role = %d\n", role);
 
@@ -615,6 +628,10 @@ class PatternController : public MessageReceiver {
     // Update the mesh
     node.update();
 
+#ifdef TUBES_ENABLE_HELLO_VFX
+    if (helloOverlay.update(millis(), node.header.uplinkId != 0)) helloActive = true;
+#endif
+
     // Update sound meter
     sound.update();
 
@@ -778,7 +795,56 @@ class PatternController : public MessageReceiver {
     }
 
     updater.handleOverlayDraw();
+
+    drawExperimentOverlay();
   }
+
+  void drawExperimentOverlay() {
+#if defined(TUBES_ENABLE_HELLO_VFX) || defined(TUBES_ENABLE_SPATIAL_PATTERNS)
+    const uint16_t length = strip.getLengthTotal();
+    const TubesExperiment::OverlayKind overlayKind = experimentOverlay.priority(false,
+      #ifdef TUBES_ENABLE_HELLO_VFX
+      helloActive,
+      #else
+      false,
+      #endif
+      #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
+      spatialMode
+      #else
+      TubesExperiment::SpatialMode::Off
+      #endif
+    );
+#ifdef TUBES_ENABLE_SPATIAL_PATTERNS
+    if (overlayKind == TubesExperiment::OverlayKind::Spatial && spatialMode == TubesExperiment::SpatialMode::Latency) {
+      const uint32_t synchronizedMs = TubesExperiment::synchronizedMillis(beats.frac, beats.bpm);
+      const uint32_t minimumMs = TubesExperiment::LATENCY_ARTISTIC_MINIMUM_MS
+        + (node.hasMobileRoute() ? TubesExperiment::spatialShellDelay(node.mobileRouteShell()) : 0);
+      const CRGB color = TubesExperiment::latencyEventOn(synchronizedMs, minimumMs) ? CRGB(64, 0, 96) : CRGB::Black;
+      for (uint16_t i = 0; i < length; i++) strip.setPixelColor(i, color);
+    } else if (overlayKind == TubesExperiment::OverlayKind::Spatial && spatialMode == TubesExperiment::SpatialMode::BpmDrift && beats.bpm) {
+      const uint8_t basePhase = TubesExperiment::bpmDriftPhase(beats.bpm, beats.frac, node.isFollowing());
+      const uint8_t phase = node.hasMobileRoute()
+        ? TubesExperiment::spatialShellPhase(basePhase, node.mobileRouteShell()) : basePhase;
+      const uint8_t level = sin8_t(phase);
+      for (uint16_t i = 0; i < length; i++) strip.setPixelColor(i, CRGB(level, 0, level));
+    }
+#endif
+#ifdef TUBES_ENABLE_HELLO_VFX
+    if (overlayKind == TubesExperiment::OverlayKind::Hello) {
+      const uint16_t lit = helloOverlay.litPixels(millis(), length);
+      if (!lit) helloActive = false;
+      else for (uint16_t logical = 0; logical < length; logical++) {
+        const CRGB color = logical < lit ? CRGB(CHSV(static_cast<uint8_t>((logical * 255U) / length), 255, 255)) : CRGB::Black;
+        strip.setPixelColor(logical, color);
+      }
+    }
+#endif
+#endif
+  }
+
+#ifdef TUBES_ENABLE_SPATIAL_PATTERNS
+  void setSpatialMode(TubesExperiment::SpatialMode mode) { spatialMode = mode; }
+#endif
 
   void restart_phrase() {
     beats.start_phrase();
@@ -1155,13 +1221,18 @@ class PatternController : public MessageReceiver {
 
   void setRole(ControllerRole r) {
     role = r;
+#ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
+    node.setMobileConductorAuthority(role >= MasterRole);
+#endif
     Serial.printf("Role = %d", role);
     EEPROM.begin(EEPSIZE);
     EEPROM.write(ROLE_EEPROM_LOCATION, role);
     EEPROM.write(BOOT_OPTIONS_EEPROM_LOCATION, 0); // Reset all boot options
     EEPROM.end();
     delay(10);
+#ifndef TUBES_S3_FIELD_OS
     doReboot = true;
+#endif
   }
 
   SyncMode randomSyncMode() {
@@ -1753,6 +1824,11 @@ class PatternController : public MessageReceiver {
         return true;
 
       case COMMAND_STATE: {
+#ifdef TUBES_S3_FIELD_OS
+        // S3 Field OS observes inbound state for diagnostics, but its local
+        // virtual strip is a separate instrument and never mirrors the flock.
+        return true;
+#endif
         auto update_data = (TubeStates*)data;
 
         TubeState state;
@@ -1823,10 +1899,20 @@ class PatternController : public MessageReceiver {
 #define WIZMOTE_BUTTON_BRIGHT_DOWN 8
 
   void force_next_pattern() {
-    next_state.pattern_phrase = current_state.beat_frame >> 12;
-    if (next_state.palette_phrase == next_state.pattern_phrase)
-      next_state.palette_phrase += random8(0, 5);
-    force_next();
+    // Remote navigation is a direct local action: do not wait for the scheduler.
+    const uint8_t id = static_cast<uint8_t>((current_state.pattern_id + 1) % gPatternCount);
+    set_wled_pattern(id, 128, 128);
+    current_state.pattern_id = id;
+    next_state.pattern_id = id;
+    if (isMasterRole()) broadcast_state();
+  }
+
+  void force_previous_pattern() {
+    const uint8_t id = current_state.pattern_id == 0 ? 255 : current_state.pattern_id - 1;
+    set_wled_pattern(id, 128, 128);
+    current_state.pattern_id = id;
+    next_state.pattern_id = id;
+    if (isMasterRole()) broadcast_state();
   }
 
   void force_next_effect() {
