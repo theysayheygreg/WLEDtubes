@@ -1220,16 +1220,21 @@ class PatternController : public MessageReceiver {
   }
 
   void setRole(ControllerRole r) {
+    const bool role_changed = (role != r);
     role = r;
 #ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
     node.setMobileConductorAuthority(role >= MasterRole);
 #endif
     Serial.printf("Role = %d", role);
-    EEPROM.begin(EEPSIZE);
-    EEPROM.write(ROLE_EEPROM_LOCATION, role);
-    EEPROM.write(BOOT_OPTIONS_EEPROM_LOCATION, 0); // Reset all boot options
-    EEPROM.end();
-    delay(10);
+    // Reboot-persistence is intended: a glass role toggle survives power cycles.
+    // Skip the flash write when the role is already the stored one (flash wear).
+    if (role_changed) {
+      EEPROM.begin(EEPSIZE);
+      EEPROM.write(ROLE_EEPROM_LOCATION, role);
+      EEPROM.write(BOOT_OPTIONS_EEPROM_LOCATION, 0); // Reset all boot options
+      EEPROM.end();
+      delay(10);
+    }
 #ifndef TUBES_S3_FIELD_OS
     doReboot = true;
 #endif
