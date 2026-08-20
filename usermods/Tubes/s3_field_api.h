@@ -7,6 +7,7 @@
 constexpr size_t TUBES_S3_PREVIEW_PIXELS = 60;
 constexpr size_t TUBES_S3_PATTERN_NAME_LENGTH = 24;
 
+// TODO: fold into TubesReadOnlySnapshot next design pass; two read-only status shapes is one too many.
 struct TubesS3FieldStatus {
   uint16_t deviceId = 0;
   uint16_t tubesVersion = 0;

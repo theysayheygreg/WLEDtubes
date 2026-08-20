@@ -18,10 +18,12 @@ struct PeerTelemetryEntry {
   int8_t maximumRssi = 0;
 };
 
+// Trust model: display-integrity only. Mesh frames are unauthenticated and the
+// 24-entry LRU is evictable by forged ids; the control plane stays denied.
 class PeerTelemetry {
 public:
   void observe(uint16_t nodeId, uint16_t uplinkId, int8_t rssi, uint32_t now) {
-    // A packet with unavailable RSSI still proves a real peer.
+    // nodeId 0 is the unset sentinel; never record it.
     if (nodeId == 0) return;
 
     PeerTelemetryEntry *entry = find(nodeId);

@@ -260,7 +260,8 @@ PatternDef gPatterns[] = {
 */
 const uint8_t gPatternCount = ARRAY_SIZE(gPatterns);
 
-// Resolves the human-facing name from the same registry that selects the renderer.
+// Hand-maps internal pattern ids to display names; WLED FX names come from the
+// registry, but the internal renderers have no name table to resolve against.
 void getPatternName(uint8_t patternId, char *name, size_t nameLength) {
   if (name == nullptr || nameLength == 0) return;
   name[0] = '\0';
