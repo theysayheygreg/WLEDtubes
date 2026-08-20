@@ -191,6 +191,7 @@ class TubesUsermod : public Usermod {
       status.lastSyncMs = controller.node.lastSyncMs;
       status.transmittedPacketCount = controller.node.transmittedPacketCount;
       status.lastTransmitMs = controller.node.lastTransmitMs;
+      status.peerTelemetryDrops = controller.node.peerSampleDrops.load(std::memory_order_relaxed);
       getPatternName(status.patternId, status.patternName, sizeof(status.patternName));
       const uint16_t length = strip.getLengthTotal();
       for (size_t i = 0; i < TUBES_S3_PREVIEW_PIXELS; i++) {

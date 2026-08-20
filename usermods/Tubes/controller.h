@@ -1226,14 +1226,19 @@ class PatternController : public MessageReceiver {
 #endif
     Serial.printf("Role = %d", role);
     // Reboot-persistence is intended: a glass role toggle survives power cycles.
-    // Skip the flash write when the role is already the stored one (flash wear).
-    if (role_changed) {
-      EEPROM.begin(EEPSIZE);
+    // Compare the persisted bytes before writing: a same-role tap must not
+    // preserve stale boot options, but should still avoid needless flash wear.
+    EEPROM.begin(EEPSIZE);
+    const uint8_t persisted_role = EEPROM.read(ROLE_EEPROM_LOCATION);
+    const uint8_t persisted_boot_options = EEPROM.read(BOOT_OPTIONS_EEPROM_LOCATION);
+    const bool persistence_changed = role_changed || persisted_role != static_cast<uint8_t>(role)
+      || persisted_boot_options != 0;
+    if (persistence_changed) {
       EEPROM.write(ROLE_EEPROM_LOCATION, role);
       EEPROM.write(BOOT_OPTIONS_EEPROM_LOCATION, 0); // Reset all boot options
-      EEPROM.end();
       delay(10);
     }
+    EEPROM.end();
 #ifndef TUBES_S3_FIELD_OS
     doReboot = true;
 #endif

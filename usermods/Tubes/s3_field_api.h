@@ -31,6 +31,7 @@ struct TubesS3FieldStatus {
   uint32_t lastSyncMs = 0;
   uint32_t transmittedPacketCount = 0;
   uint32_t lastTransmitMs = 0;
+  uint32_t peerTelemetryDrops = 0;
   char patternName[TUBES_S3_PATTERN_NAME_LENGTH] = {};
   uint32_t preview[TUBES_S3_PREVIEW_PIXELS] = {};
 };

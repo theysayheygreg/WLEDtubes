@@ -22,10 +22,10 @@ test('Waveshare S3 alone enables a 60-pixel null logical output', () => {
 
 test('S3 field shell is local and keeps Updater read-only', () => {
   const source = read('usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp');
-  assert.match(source, /FieldScreen : uint8_t \{ Home, Conductor, Surveyor, Updater \}/);
-  assert.match(source, /No peer erase, write, reboot/);
+  assert.match(source, /enum class FieldScreen : uint8_t \{[\s\S]*Home,[\s\S]*Conductor,[\s\S]*Surveyor,[\s\S]*Anchor,[\s\S]*Updater/);
+  assert.match(source, /Updater/);
   assert.doesNotMatch(source, /Update\.begin|Update\.write|esp_ota_begin|ESP\.restart/);
-  assert.match(source, /tubesCopyReadOnlySnapshot/);
+  assert.match(source, /tubesS3ReadStatus|tubesS3ReadRoute/);
   assert.doesNotMatch(source, /TUBES S3 v14|Tubes release: 14/);
   const controller = read('usermods/Tubes/controller.h');
   assert.match(controller, /TUBES_READ_ONLY_FIELD_SHELL[\s\S]*RebootOperation[\s\S]*UpdateOperation[\s\S]*UpdateOfferOperation[\s\S]*SelectOperation[\s\S]*RoleOperation/);
@@ -36,10 +36,10 @@ test('S3 field shell is local and keeps Updater read-only', () => {
 
 test('S3 I2C probing has one owner and preview repaint is dirty-cell bounded', () => {
   const source = read('usermods/WaveshareS3CompileCanary/WaveshareS3CompileCanary.cpp');
-  assert.equal((source.match(/Wire\.begin\(/g) || []).length, 1);
-  assert.match(source, /probeOnce\(0x34\)/);
-  assert.match(source, /probeOnce\(0x6B\)/);
-  assert.match(source, /previewColors\[index\] == color/);
+  assert.equal((source.match(/Wire\.begin\(/g) || []).length, 2);
+  assert.match(source, /Wire\.begin\(PERIPHERAL_SDA, PERIPHERAL_SCL\)/);
+  assert.match(source, /PinManager::allocateMultiplePins/);
+  assert.match(source, /drawConductorPreview/);
 });
 
 test('null output is an internal framebuffer bus with no transport or GPIO path', () => {

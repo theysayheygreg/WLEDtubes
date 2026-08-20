@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include <atomic>
 #include "global_state.h"
 #include "espnow_broadcast.h"
 #include "peer_telemetry.h"
@@ -59,8 +60,9 @@ class LightNode {
     };
     static constexpr uint8_t PEER_SAMPLE_RING_SIZE = 16;
     PeerSample peerSampleRing[PEER_SAMPLE_RING_SIZE];
-    volatile uint8_t peerSampleHead = 0;  // written by the RX callback only
-    volatile uint8_t peerSampleTail = 0;  // written by the loop task only
+    std::atomic<uint8_t> peerSampleHead{0};  // written by the RX callback only
+    std::atomic<uint8_t> peerSampleTail{0};  // written by the loop task only
+    std::atomic<uint32_t> peerSampleDrops{0};
     uint32_t receivedPacketCount = 0;
     uint32_t lastPacketMs = 0;
     uint32_t synchronizedPacketCount = 0;
@@ -341,11 +343,14 @@ class LightNode {
         updateESPNowState();
 
         // Drain RX-task peer samples; this loop task is the only observe() caller.
-        while (peerSampleTail != peerSampleHead) {
-            const PeerSample &sample = peerSampleRing[peerSampleTail];
+        uint8_t tail = peerSampleTail.load(std::memory_order_relaxed);
+        const uint8_t head = peerSampleHead.load(std::memory_order_acquire);
+        while (tail != head) {
+            const PeerSample &sample = peerSampleRing[tail];
             peerTelemetry.observe(sample.nodeId, sample.uplinkId, sample.rssi, millis());
-            peerSampleTail = (peerSampleTail + 1) % PEER_SAMPLE_RING_SIZE;
+            tail = (tail + 1) % PEER_SAMPLE_RING_SIZE;
         }
+        peerSampleTail.store(tail, std::memory_order_release);
 
         // Check the last time we heard from the uplink node
         if (isFollowing() && uplinkTimer.ended()) {
@@ -557,11 +562,15 @@ protected:
         const NodeMessage *message = reinterpret_cast<const NodeMessage *>(msg);
         if (message->header.version != CURRENT_NODE_VERSION || message->header.id == instance->header.id) return;
         // WiFi-task context: stage the sample; never touch the peer table here.
-        const uint8_t head = instance->peerSampleHead;
+        const uint8_t head = instance->peerSampleHead.load(std::memory_order_relaxed);
+        const uint8_t tail = instance->peerSampleTail.load(std::memory_order_acquire);
         const uint8_t next = (head + 1) % PEER_SAMPLE_RING_SIZE;
-        if (next == instance->peerSampleTail) return;  // ring full: drop the sample
+        if (next == tail) {
+            instance->peerSampleDrops.fetch_add(1, std::memory_order_relaxed);
+            return;  // ring full: bounded, observable drop
+        }
         instance->peerSampleRing[head] = {message->header.id, message->header.uplinkId, rssi};
-        instance->peerSampleHead = next;
+        instance->peerSampleHead.store(next, std::memory_order_release);
     }
 
     static bool onEspNowFilter(const uint8_t *address, const uint8_t *msg, uint8_t len, int8_t rssi) {
