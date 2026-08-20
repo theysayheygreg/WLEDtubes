@@ -96,6 +96,10 @@ private:
   bool renderedMaster = false;
   bool renderedMasterValid = false;
   uint32_t touchActionCount = 0;
+  static constexpr uint8_t MIRROR_SEMANTIC_REVISION = 1;
+  uint32_t mirrorSemanticHash = 2166136261u;
+  TubesS3FieldStatus mirrorStatus;
+  uint32_t mirrorRenderedAtMs = 0;
   static constexpr uint32_t TOUCH_NOISE_DEBOUNCE_MS = 35;
 
   static constexpr uint16_t COLOR_BACKGROUND = 0x0863;
@@ -111,6 +115,35 @@ private:
     const uint8_t green = color >> 8;
     const uint8_t blue = color;
     return static_cast<uint16_t>(((red & 0xF8) << 8) | ((green & 0xFC) << 3) | (blue >> 3));
+  }
+
+  void mirrorByte(uint8_t value) {
+    mirrorSemanticHash = (mirrorSemanticHash ^ value) * 16777619u;
+  }
+
+  void mirrorU32(uint32_t value) {
+    for (uint8_t i = 0; i < 4; i++) mirrorByte(value >> (i * 8));
+  }
+
+  // Hashes renderer inputs, not panel pixels. Geometry is pinned by the revision;
+  // changing a five-screen layout requires bumping MIRROR_SEMANTIC_REVISION.
+  void recordMirrorSemantic(const TubesS3FieldStatus *status = nullptr) {
+    mirrorSemanticHash = 2166136261u;
+    mirrorByte(MIRROR_SEMANTIC_REVISION);
+    mirrorByte(static_cast<uint8_t>(screen));
+    mirrorRenderedAtMs = millis();
+    if (screen != FieldScreen::Conductor || status == nullptr) return;
+    mirrorStatus = *status;
+    mirrorU32(mirrorRenderedAtMs);
+    mirrorU32(status->deviceId); mirrorByte(status->priority);
+    mirrorByte(status->isMaster); mirrorByte(status->radioReady);
+    mirrorByte(status->radioChannel); mirrorU32(status->peerCount);
+    mirrorU32(status->uplinkId); mirrorU32(status->syncSourceId);
+    mirrorU32(status->bpm); mirrorByte(status->beat);
+    mirrorU32(status->receivedPacketCount); mirrorU32(status->lastPacketMs);
+    mirrorU32(status->synchronizedPacketCount); mirrorU32(status->lastSyncMs);
+    mirrorU32(status->transmittedPacketCount);
+    for (size_t i = 0; i < TUBES_S3_PATTERN_NAME_LENGTH; i++) mirrorByte(status->patternName[i]);
   }
 
   void title(const __FlashStringHelper *text) {
@@ -151,6 +184,7 @@ private:
     display.println(F("Shape proximity"));
     display.setCursor(266, 383);
     display.println(F("Service safely"));
+    recordMirrorSemantic();
   }
 
   void drawBack() {
@@ -240,6 +274,7 @@ private:
     }
     lastPreviewDraw = millis();
     lastTelemetryDraw = millis();
+    recordMirrorSemantic(&status);
   }
 
   void drawSurveyorTelemetry() {
@@ -302,6 +337,7 @@ private:
     display.setCursor(24, 450);
     display.println(F("Live receiver evidence"));
     drawSurveyorTelemetry();
+    recordMirrorSemantic();
   }
 
   void drawAnchor() {
@@ -328,6 +364,7 @@ private:
     button(40, 325, 400, 100,
            route.anchorEnabled ? RGB565_RED : status.isMaster ? RGB565_PURPLE : RGB565_DARKGREY,
            route.anchorEnabled ? F("Disable anchor") : F("Enable anchor"));
+    recordMirrorSemantic();
   }
 
   void drawUpdater() {
@@ -341,6 +378,7 @@ private:
     display.setTextColor(COLOR_MUTED);
     display.setCursor(24, 450);
     display.println(F("Nearby-device view only; no firmware write path active."));
+    recordMirrorSemantic();
   }
 
   void draw() {
@@ -445,6 +483,7 @@ public:
       TubesS3FieldStatus status;
       tubesS3ReadStatus(status);
       drawConductorPreview(status);
+      recordMirrorSemantic(&status);
     }
     if (displayReady && now - lastTelemetryDraw >= SAMPLE_INTERVAL_MS) {
       if (screen == FieldScreen::Conductor) {
@@ -455,6 +494,7 @@ public:
         } else {
           drawConductorTelemetry(status);
           lastTelemetryDraw = now;
+          recordMirrorSemantic(&status);
         }
       } else if (screen == FieldScreen::Surveyor || screen == FieldScreen::Updater) {
         drawSurveyorTelemetry();
@@ -551,8 +591,24 @@ public:
       status.isMaster, status.isFollowing, status.radioReady,
       static_cast<unsigned>(status.radioChannel), status.patternName,
       static_cast<unsigned>(status.peerCount), status.uplinkId);
+    Serial.printf("WSS3-SEM rev=%u hash=%08x rendered=%lu scope=%s\n",
+      MIRROR_SEMANTIC_REVISION, mirrorSemanticHash,
+      static_cast<unsigned long>(mirrorRenderedAtMs),
+      screen == FieldScreen::Home || screen == FieldScreen::Conductor ? "complete" : "partial");
+    if (screen == FieldScreen::Conductor) {
+      Serial.printf("WSS3-CONDUCTOR device=%u priority=%u master=%u radio=%u ch=%u peers=%u up=%u syncsrc=%u bpm=%u beat=%u rx=%lu lastrx=%lu sync=%lu lastsync=%lu tx=%lu patternhex=",
+        mirrorStatus.deviceId, mirrorStatus.priority, mirrorStatus.isMaster, mirrorStatus.radioReady,
+        mirrorStatus.radioChannel, static_cast<unsigned>(mirrorStatus.peerCount), mirrorStatus.uplinkId,
+        mirrorStatus.syncSourceId, mirrorStatus.bpm, mirrorStatus.beat,
+        static_cast<unsigned long>(mirrorStatus.receivedPacketCount), static_cast<unsigned long>(mirrorStatus.lastPacketMs),
+        static_cast<unsigned long>(mirrorStatus.synchronizedPacketCount), static_cast<unsigned long>(mirrorStatus.lastSyncMs),
+        static_cast<unsigned long>(mirrorStatus.transmittedPacketCount));
+      for (size_t i = 0; i < TUBES_S3_PATTERN_NAME_LENGTH; i++) Serial.printf("%02x", static_cast<uint8_t>(mirrorStatus.patternName[i]));
+      Serial.println();
+    }
     Serial.print(F("WSS3-PIXELS "));
-    for (size_t i = 0; i < TUBES_S3_PREVIEW_PIXELS; i++) Serial.printf("%06x ", status.preview[i] & 0xFFFFFF);
+    const TubesS3FieldStatus &pixels = screen == FieldScreen::Conductor ? mirrorStatus : status;
+    for (size_t i = 0; i < TUBES_S3_PREVIEW_PIXELS; i++) Serial.printf("%06x ", pixels.preview[i] & 0xFFFFFF);
     Serial.println();
     Serial.println(F("WSS3-DUMP-END"));
   }
