@@ -1903,7 +1903,7 @@ class PatternController : public MessageReceiver {
   }
 
   void force_previous_pattern() {
-    const uint8_t id = current_state.pattern_id == 0 ? 255 : current_state.pattern_id - 1;
+    const uint8_t id = current_state.pattern_id == 0 ? gPatternCount - 1 : current_state.pattern_id - 1;
     set_wled_pattern(id, 128, 128);
     current_state.pattern_id = id;
     next_state.pattern_id = id;

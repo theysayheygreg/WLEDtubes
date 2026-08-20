@@ -182,7 +182,6 @@ class LightNode {
     void onPeerData(const uint8_t* address, const NodeMessage* message, uint8_t len, signed int rssi, bool broadcast) {
         // Track that another node exists, updating this node's understanding of the mesh.
         onPeerPing(message->header);
-        peerTelemetry.observe(message->header.id, message->header.uplinkId, static_cast<int8_t>(rssi), millis());
         lastPacketMs = millis();
         if (receivedPacketCount != UINT32_MAX) receivedPacketCount++;
 
