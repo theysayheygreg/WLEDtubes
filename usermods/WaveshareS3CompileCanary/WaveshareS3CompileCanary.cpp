@@ -185,7 +185,7 @@ class WaveshareS3TubesPrototype : public Usermod {
       previewInvalid = false;
     }
 
-    // Polls the touch controller and paints a visible marker for hardware proof.
+    // Polls the touch controller for navigation taps; lastTouchX/Y also feed the serial dump.
     void updateTouch() {
       if (!touchReady || digitalRead(TOUCH_IRQ) != LOW) return;
 
@@ -211,8 +211,11 @@ class WaveshareS3TubesPrototype : public Usermod {
       // Claim the display/touch/I2C pins with WLED's PinManager so a user can't
       // assign a button/relay/LED output onto the live QSPI or I2C bus from the UI.
       // Fail closed if any is already owned, matching the house PinManager pattern.
-      { const int8_t owned[] = {DISPLAY_CS, DISPLAY_SCLK, DISPLAY_SDIO0, DISPLAY_SDIO1, DISPLAY_SDIO2, DISPLAY_SDIO3, DISPLAY_RESET, PERIPHERAL_SDA, PERIPHERAL_SCL, TOUCH_IRQ, TOUCH_RESET};
-        if (!PinManager::allocateMultiplePins(owned, sizeof(owned), PinOwner::UM_Unspecified, true)) {
+      // UM_Unspecified is the shared usermod tag; the pins stay claimed even if
+      // display init later fails, deliberately keeping the UI off these wires.
+      { const int8_t owned[] = {DISPLAY_CS, DISPLAY_SCLK, DISPLAY_SDIO0, DISPLAY_SDIO1, DISPLAY_SDIO2, DISPLAY_SDIO3, DISPLAY_RESET, PERIPHERAL_SDA, PERIPHERAL_SCL, TOUCH_RESET};
+        if (!PinManager::allocateMultiplePins(owned, sizeof(owned), PinOwner::UM_Unspecified, true)
+            || !PinManager::allocatePin(TOUCH_IRQ, false, PinOwner::UM_Unspecified)) {
           DEBUG_PRINTLN(F("Waveshare S3: display/touch pins are already claimed; screen disabled"));
           return;
         } }
@@ -285,10 +288,10 @@ REGISTER_USERMOD(waveshareS3TubesPrototype);
 } // namespace
 
 // Strong definition for the weak hook consumed by the Tubes 'S' keyboard command.
+// (Deliberate: rides the existing keyboard-command channel like 'z'/TUBE_REPORT does;
+// if this grows, fold it into the tubes snapshot/report mechanism instead.)
 extern "C" void wss3DumpScreenState() { waveshareS3TubesPrototype.dumpScreenState(); }
 
-namespace {
-} // namespace
 
 // Retained as a build-contract symbol for the existing target verification.
 extern "C" void waveshareS3PeripheralCompileCanary() {}

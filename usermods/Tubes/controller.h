@@ -1,7 +1,5 @@
 #pragma once
 
-extern "C" void wss3DumpScreenState() __attribute__((weak));
-
 #include <EEPROM.h>
 #include "wled.h"
 #include "FX.h"
@@ -17,6 +15,9 @@ extern "C" void wss3DumpScreenState() __attribute__((weak));
 #include "node.h"
 #include "deferred_bpm_broadcast.h"
 #include "device_report_protocol.h"
+
+// Screen-state mirror dump, provided by the Waveshare S3 usermod when built (weak: null elsewhere).
+extern "C" void wss3DumpScreenState() __attribute__((weak));
 
 #define EEPSIZE 2560
 
@@ -279,6 +280,7 @@ class PatternController : public MessageReceiver {
     ControllerOptions options;
     WledDisplayState wledDisplayBeforeTubes;
     char key_buffer[20] = {0};
+    bool key_buffer_overflow = false;
     int8_t pendingTubesMode = -1;
     DeferredBpmBroadcast deferredBpmBroadcast;
 
@@ -1273,7 +1275,7 @@ class PatternController : public MessageReceiver {
   void printHelp() const {
     Serial.println(F("b###.# - set bpm\ns - start phrase\n\np### - patterns\nm### - sync mode\nc### - colors\ne### - effects\nn - force next\n\ni### - set ID\nd - toggle debugging\nl### - brightness"));
     Serial.println(F("@ - set power saving mode\nU - begin auto-update\nP - toggle all power saves\nO - toggle all sound overlays\n==== wifi ====\na - turn on access point\nq - turn off access point\nt0/1 - Tubes mode off/on"));
-    Serial.println(F("==== global actions ====\n* - enter select mode (double-click to Ready)\nA - turn on access point (Ready to update)\nW - forget WiFi client\nX - restart\nV### - auto-upgrade to version\nz############ - probe a device by MAC\nM - cancel manual pattern override"));
+    Serial.println(F("==== global actions ====\n* - enter select mode (double-click to Ready)\nA - turn on access point (Ready to update)\nW - forget WiFi client\nX - restart\nV### - auto-upgrade to version\nz############ - probe a device by MAC\nS - dump screen state (Waveshare S3 builds)\nM - cancel manual pattern override"));
   }
 
   bool executeOperation(const TubeOperation& operation) {
@@ -1511,13 +1513,21 @@ class PatternController : public MessageReceiver {
     char c = Serial.read();
     size_t len = strnlen(key_buffer, sizeof(key_buffer) - 1);
     if (c == '\n') {
-      keyboard_command(key_buffer);
+      // An overlong line is discarded whole: executing a truncated argument could
+      // broadcast a wrong version or value (e.g. V<prefix> auto-update offers).
+      if (!key_buffer_overflow)
+        keyboard_command(key_buffer);
+      else
+        Serial.println(F("[command too long; ignored]"));
       key_buffer[0] = 0;
+      key_buffer_overflow = false;
     } else if (len < sizeof(key_buffer) - 1) {
-      // Leave room for the terminator; drop excess characters instead of
-      // writing past the buffer (which used to zero pendingTubesMode).
+      // Leave room for the terminator; never write past the buffer
+      // (an overflow here used to zero pendingTubesMode).
       key_buffer[len] = c;
       key_buffer[len + 1] = 0;
+    } else {
+      key_buffer_overflow = true;
     }
   }
 
