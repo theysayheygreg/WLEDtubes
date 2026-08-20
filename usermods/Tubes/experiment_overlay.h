@@ -22,15 +22,13 @@ constexpr SpatialMode parseSpatialMode(int value) {
   return value == 1 ? SpatialMode::Latency : value == 2 ? SpatialMode::BpmDrift : SpatialMode::Off;
 }
 
-class ExperimentOverlay {
- public:
-  constexpr OverlayKind priority(bool otaActive, bool helloActive, SpatialMode spatialMode) const {
-    return otaActive ? OverlayKind::OtaAcknowledgement
-      : helloActive ? OverlayKind::Hello
-      : spatialMode != SpatialMode::Off ? OverlayKind::Spatial
-      : OverlayKind::None;
-  }
-};
+// Picks the single overlay that owns the strip this frame; OTA beats hello beats spatial.
+constexpr OverlayKind overlayPriority(bool otaActive, bool helloActive, SpatialMode spatialMode) {
+  return otaActive ? OverlayKind::OtaAcknowledgement
+    : helloActive ? OverlayKind::Hello
+    : spatialMode != SpatialMode::Off ? OverlayKind::Spatial
+    : OverlayKind::None;
+}
 
 #ifdef TUBES_ENABLE_HELLO_VFX
 class HelloOverlay {

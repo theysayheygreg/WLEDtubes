@@ -49,16 +49,14 @@ class TubesUsermod : public Usermod {
     Master master = Master(controller);
     bool isLegacy = false;
     bool checkedLedSegments = false;
-    bool s3AnchorAuthority = false;
     bool otaSuspended = false;
-    TubesExperiment::ExperimentOverlay experimentOverlay;
 #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
     TubesExperiment::SpatialMode spatialMode = TubesExperiment::SpatialMode::Off;
 #endif
 
 #ifdef TUBES_ENABLE_HTTP_OTA_VFX
     void showOtaAcknowledgement(const CRGB &color) {
-      if (experimentOverlay.priority(true, false, TubesExperiment::SpatialMode::Off) != TubesExperiment::OverlayKind::OtaAcknowledgement) return;
+      if (TubesExperiment::overlayPriority(true, false, TubesExperiment::SpatialMode::Off) != TubesExperiment::OverlayKind::OtaAcknowledgement) return;
       for (uint16_t i = 0; i < strip.getLengthTotal(); i++) strip.setPixelColor(i, color);
       strip.show();
     }
@@ -216,10 +214,10 @@ class TubesUsermod : public Usermod {
 
     bool readS3Route(TubesS3RouteStatus &route) {
 #if defined(TUBES_ENABLE_SPATIAL_PATTERNS) && defined(TUBES_ENABLE_MOBILE_CONDUCTOR)
-      route.anchorEnabled = s3AnchorAuthority;
+      route.anchorEnabled = controller.node.mobileConductorAuthority.isRoot();
       route.routeValid = controller.node.hasMobileRoute();
       route.shell = controller.node.mobileRouteShell();
-      if (s3AnchorAuthority) {
+      if (route.anchorEnabled) {
         route.conductorId = controller.node.header.id;
         route.parentId = controller.node.header.id;
         route.routeCost = 0;
@@ -258,7 +256,6 @@ class TubesUsermod : public Usermod {
     bool s3SetAnchorAuthority(bool enabled) {
 #ifdef TUBES_ENABLE_MOBILE_CONDUCTOR
       if (enabled && !controller.isMasterRole()) return false;
-      s3AnchorAuthority = enabled;
       controller.node.setMobileConductorAuthority(enabled);
       return true;
 #else
@@ -419,7 +416,7 @@ class TubesUsermod : public Usermod {
       JsonObject top = root[F("Tubes")];
       const int configuredMode = top[F("spatial-mode")] | 0;
       spatialMode = TubesExperiment::parseSpatialMode(configuredMode);
-      controller.setSpatialMode(spatialMode);
+      controller.set_spatial_mode(spatialMode);
       return !top[F("spatial-mode")].isNull();
     }
 

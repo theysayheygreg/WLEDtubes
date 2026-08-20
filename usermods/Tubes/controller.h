@@ -294,13 +294,12 @@ class PatternController : public MessageReceiver {
     bool isBoring = false;
 
 #ifdef TUBES_ENABLE_HELLO_VFX
-    TubesExperiment::HelloOverlay helloOverlay;
-    bool helloActive = false;
+    TubesExperiment::HelloOverlay hello_overlay;
+    bool hello_active = false;
 #endif
 #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
-    TubesExperiment::SpatialMode spatialMode = TubesExperiment::SpatialMode::Off;
+    TubesExperiment::SpatialMode spatial_mode = TubesExperiment::SpatialMode::Off;
 #endif
-    TubesExperiment::ExperimentOverlay experimentOverlay;
 
   PatternController() : node(this) {
 #ifdef USELCD
@@ -629,7 +628,7 @@ class PatternController : public MessageReceiver {
     node.update();
 
 #ifdef TUBES_ENABLE_HELLO_VFX
-    if (helloOverlay.update(millis(), node.header.uplinkId != 0)) helloActive = true;
+    if (hello_overlay.update(millis(), node.header.uplinkId != 0)) hello_active = true;
 #endif
 
     // Update sound meter
@@ -796,32 +795,32 @@ class PatternController : public MessageReceiver {
 
     updater.handleOverlayDraw();
 
-    drawExperimentOverlay();
+    draw_experiment_overlay();
   }
 
-  void drawExperimentOverlay() {
+  void draw_experiment_overlay() {
 #if defined(TUBES_ENABLE_HELLO_VFX) || defined(TUBES_ENABLE_SPATIAL_PATTERNS)
     const uint16_t length = strip.getLengthTotal();
-    const TubesExperiment::OverlayKind overlayKind = experimentOverlay.priority(false,
+    const TubesExperiment::OverlayKind overlayKind = TubesExperiment::overlayPriority(false,
       #ifdef TUBES_ENABLE_HELLO_VFX
-      helloActive,
+      hello_active,
       #else
       false,
       #endif
       #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
-      spatialMode
+      spatial_mode
       #else
       TubesExperiment::SpatialMode::Off
       #endif
     );
 #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
-    if (overlayKind == TubesExperiment::OverlayKind::Spatial && spatialMode == TubesExperiment::SpatialMode::Latency) {
+    if (overlayKind == TubesExperiment::OverlayKind::Spatial && spatial_mode == TubesExperiment::SpatialMode::Latency) {
       const uint32_t synchronizedMs = TubesExperiment::synchronizedMillis(beats.frac, beats.bpm);
       const uint32_t minimumMs = TubesExperiment::LATENCY_ARTISTIC_MINIMUM_MS
         + (node.hasMobileRoute() ? TubesExperiment::spatialShellDelay(node.mobileRouteShell()) : 0);
       const CRGB color = TubesExperiment::latencyEventOn(synchronizedMs, minimumMs) ? CRGB(64, 0, 96) : CRGB::Black;
       for (uint16_t i = 0; i < length; i++) strip.setPixelColor(i, color);
-    } else if (overlayKind == TubesExperiment::OverlayKind::Spatial && spatialMode == TubesExperiment::SpatialMode::BpmDrift && beats.bpm) {
+    } else if (overlayKind == TubesExperiment::OverlayKind::Spatial && spatial_mode == TubesExperiment::SpatialMode::BpmDrift && beats.bpm) {
       const uint8_t basePhase = TubesExperiment::bpmDriftPhase(beats.bpm, beats.frac, node.isFollowing());
       const uint8_t phase = node.hasMobileRoute()
         ? TubesExperiment::spatialShellPhase(basePhase, node.mobileRouteShell()) : basePhase;
@@ -831,8 +830,8 @@ class PatternController : public MessageReceiver {
 #endif
 #ifdef TUBES_ENABLE_HELLO_VFX
     if (overlayKind == TubesExperiment::OverlayKind::Hello) {
-      const uint16_t lit = helloOverlay.litPixels(millis(), length);
-      if (!lit) helloActive = false;
+      const uint16_t lit = hello_overlay.litPixels(millis(), length);
+      if (!lit) hello_active = false;
       else for (uint16_t logical = 0; logical < length; logical++) {
         const CRGB color = logical < lit ? CRGB(CHSV(static_cast<uint8_t>((logical * 255U) / length), 255, 255)) : CRGB::Black;
         strip.setPixelColor(logical, color);
@@ -843,7 +842,7 @@ class PatternController : public MessageReceiver {
   }
 
 #ifdef TUBES_ENABLE_SPATIAL_PATTERNS
-  void setSpatialMode(TubesExperiment::SpatialMode mode) { spatialMode = mode; }
+  void set_spatial_mode(TubesExperiment::SpatialMode mode) { spatial_mode = mode; }
 #endif
 
   void restart_phrase() {
