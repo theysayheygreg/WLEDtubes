@@ -210,8 +210,12 @@ class WaveshareS3TubesPrototype : public Usermod {
     void setup() override {
       // Claim the display/touch/I2C pins with WLED's PinManager so a user can't
       // assign a button/relay/LED output onto the live QSPI or I2C bus from the UI.
+      // Fail closed if any is already owned, matching the house PinManager pattern.
       { const int8_t owned[] = {DISPLAY_CS, DISPLAY_SCLK, DISPLAY_SDIO0, DISPLAY_SDIO1, DISPLAY_SDIO2, DISPLAY_SDIO3, DISPLAY_RESET, PERIPHERAL_SDA, PERIPHERAL_SCL, TOUCH_IRQ, TOUCH_RESET};
-        PinManager::allocateMultiplePins(owned, sizeof(owned), PinOwner::UM_Unspecified, true); }
+        if (!PinManager::allocateMultiplePins(owned, sizeof(owned), PinOwner::UM_Unspecified, true)) {
+          DEBUG_PRINTLN(F("Waveshare S3: display/touch pins are already claimed; screen disabled"));
+          return;
+        } }
       boardI2c.begin();
 
       Serial.println(F("WSS3-DISPLAY: begin()"));
