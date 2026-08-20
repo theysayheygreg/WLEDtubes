@@ -1824,11 +1824,6 @@ class PatternController : public MessageReceiver {
         return true;
 
       case COMMAND_STATE: {
-#ifdef TUBES_S3_FIELD_OS
-        // S3 Field OS observes inbound state for diagnostics, but its local
-        // virtual strip is a separate instrument and never mirrors the flock.
-        return true;
-#endif
         auto update_data = (TubeStates*)data;
 
         TubeState state;

@@ -237,11 +237,13 @@ class TubesUsermod : public Usermod {
     }
 
     bool s3ForceNext() {
+      if (!controller.isMasterRole()) return false;
       controller.force_next_pattern();
       return true;
     }
 
     bool s3ForcePrevious() {
+      if (!controller.isMasterRole()) return false;
       controller.force_previous_pattern();
       return true;
     }

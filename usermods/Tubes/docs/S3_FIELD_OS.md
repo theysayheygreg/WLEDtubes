@@ -6,8 +6,10 @@ under every screen. Screen navigation never pauses the installation.
 
 ## Workspaces
 
-- **Conductor:** preview the virtual Tube and control pattern, palette, tempo,
-  transitions, blackout, and master authority through existing Tubes semantics.
+- **Conductor:** preview the virtual Tube and choose Follow or Master through
+  existing Tubes semantics. Follow behaves like another Tube and renders the
+  accepted uplink state; Previous/Next are disabled. Master enables those
+  pattern controls and broadcasts the resulting state to the flock.
 - **Surveyor:** show recently heard peers and bounded RSSI history while Greg
   walks the installation. Measurements are observations, not fabricated
   distance or coordinates.

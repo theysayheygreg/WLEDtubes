@@ -93,7 +93,6 @@ private:
   uint32_t lastPeerDiagnostic = 0;
   bool touchPressed = false;
   uint32_t touchNoiseUntilMs = 0;
-  char renderedPattern[TUBES_S3_PATTERN_NAME_LENGTH] = {};
   bool renderedMaster = false;
   bool renderedMasterValid = false;
   uint32_t touchActionCount = 0;
@@ -173,60 +172,52 @@ private:
 
   // Reports synchronization only when accepted state/beat traffic proves it.
   void drawConductorTelemetry(const TubesS3FieldStatus &status) {
-    // Dynamic fields own tight rectangles; never clear the enclosing card.
-    if (strcmp(renderedPattern, status.patternName) != 0) {
-      display.fillRect(32, 96, 200, 24, COLOR_SURFACE);
-      display.setTextColor(RGB565_WHITE); display.setTextSize(2); display.setCursor(32, 96);
-      char padded[TUBES_S3_PATTERN_NAME_LENGTH + 1];
-      snprintf(padded, sizeof(padded), "%-20.20s", status.patternName);
-      display.print(padded);
-      strncpy(renderedPattern, status.patternName, sizeof(renderedPattern) - 1);
-      renderedPattern[sizeof(renderedPattern) - 1] = '\0';
-    }
-    display.fillRect(32, 119, 420, 12, COLOR_SURFACE);
-    display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(32, 119);
-    display.printf("S3 Remote ID %03X  |  Priority %u  |  %u BPM  |  beat %u", status.deviceId,
-                   status.priority, status.bpm, status.beat + 1);
+    // Keep every changing label inside the left card. The former long telemetry
+    // lines overran this region and left text underneath the mode and pattern controls.
+    display.fillRect(32, 96, 190, 68, COLOR_SURFACE);
+    display.setTextSize(1);
+    display.setTextColor(RGB565_WHITE); display.setCursor(32, 96);
+    display.printf("Remote %03X  priority %u", status.deviceId, status.priority);
+    display.setCursor(32, 116); display.printf("Pattern %s", status.patternName);
+    display.setTextColor(COLOR_MUTED); display.setCursor(32, 136);
+    display.printf("%u BPM  beat %u", status.bpm, status.beat + 1);
+    display.setCursor(32, 156);
     const uint32_t now = millis();
     if (!status.radioReady) {
       display.setTextColor(RGB565_RED);
-      display.printf("Radio offline  |  channel %u\n", status.radioChannel);
+      display.printf("Radio offline  ch %u", status.radioChannel);
     } else if (status.receivedPacketCount == 0) {
       display.setTextColor(COLOR_AMBER);
-      display.printf("Listening on channel %u  |  no mesh packets heard\n", status.radioChannel);
+      display.printf("Listening  ch %u", status.radioChannel);
     } else if (!status.isMaster && status.synchronizedPacketCount > 0 && now - status.lastSyncMs <= 20000) {
       display.setTextColor(COLOR_MINT);
-      display.printf("SYNCED from %03X  |  RX %lums ago\n", status.syncSourceId, now - status.lastSyncMs);
+      display.printf("Follow %03X  RX %lums", status.syncSourceId, now - status.lastSyncMs);
     } else if (now - status.lastPacketMs > 20000) {
       display.setTextColor(COLOR_AMBER);
-      display.printf("Mesh stale  |  last RX %lus ago\n", (now - status.lastPacketMs) / 1000);
+      display.printf("Mesh stale  RX %lus", (now - status.lastPacketMs) / 1000);
     } else if (status.isMaster) {
       display.setTextColor(COLOR_MINT);
-      display.printf("Mesh active  |  RX %lums  |  TX %lu packets\n",
-                     now - status.lastPacketMs, status.transmittedPacketCount);
+      display.printf("Master mesh  TX %lu", status.transmittedPacketCount);
     } else {
       display.setTextColor(COLOR_AMBER);
-      display.printf("Packets heard; no fresh sync state  |  RX %lums\n", now - status.lastPacketMs);
+      display.print(F("Heard mesh; awaiting sync"));
     }
   }
 
   void drawConductor() {
     TubesS3FieldStatus status;
     tubesS3ReadStatus(status);
+    renderedMaster = status.isMaster;
+    renderedMasterValid = true;
     title(F("Conductor"));
     drawBack();
     display.fillRoundRect(20, 70, 215, 105, 14, COLOR_SURFACE);
     display.fillRoundRect(245, 70, 215, 105, 14, COLOR_SURFACE);
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(32, 80);
     display.print(F("CURRENT DEVICE"));
-    display.setCursor(32, 84); display.print(F("Remote ID"));
-    display.setCursor(32, 108); display.print(F("Priority"));
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(257, 80); display.print(F("MODE"));
     button(257, 92, 88, 64, status.isMaster ? COLOR_SURFACE_RAISED : COLOR_PRIMARY, F("Follow"));
     button(353, 92, 88, 64, status.isMaster ? COLOR_PRIMARY : COLOR_SURFACE_RAISED, F("Master"));
-    display.setTextColor(RGB565_WHITE); display.setTextSize(2); display.setCursor(125, 84);
-    display.printf("%03X", status.deviceId);
-    display.setCursor(125, 108); display.printf("%u", status.priority);
     display.setTextColor(COLOR_MUTED); display.setTextSize(1); display.setCursor(30, 184);
     display.print(F("ALWAYS-RUNNING VIRTUAL STRIP"));
     drawConductorTelemetry(status);
@@ -364,7 +355,6 @@ private:
   }
 
   void onTouch(int16_t x, int16_t y) {
-    const uint32_t now = millis();
     FieldScreen nextScreen = screen;
     bool action = false;
     if (screen != FieldScreen::Home && x >= 360 && y <= 75) {
@@ -374,7 +364,7 @@ private:
       else if (y >= 250 && y < 430) nextScreen = x < 240 ? FieldScreen::Anchor : FieldScreen::Updater;
       action = nextScreen != screen;
     } else if (screen == FieldScreen::Conductor && y >= 92 && y < 156 && (x >= 257 && x < 441)) {
-      tubesS3SetMasterAuthority(x >= 353); action = true;
+      action = tubesS3SetMasterAuthority(x >= 353);
     } else if (screen == FieldScreen::Conductor && y >= 320 && y < 410) {
       TubesS3FieldStatus btnStatus; tubesS3ReadStatus(btnStatus);
       if (!btnStatus.isMaster) { nextScreen = screen; return; }
@@ -388,11 +378,9 @@ private:
     }
     if (!action) return;
     ++touchActionCount;
-    if (nextScreen != screen) { screen = nextScreen; renderedPattern[0] = '\0'; draw(); }
-    else if (screen == FieldScreen::Conductor) {
-      TubesS3FieldStatus status; tubesS3ReadStatus(status);
-      drawConductorTelemetry(status); drawConductorPreview(status);
-    } else if (screen == FieldScreen::Anchor) drawAnchor();
+    if (nextScreen != screen) { screen = nextScreen; draw(); }
+    else if (screen == FieldScreen::Conductor) drawConductor();
+    else if (screen == FieldScreen::Anchor) drawAnchor();
   }
 
 public:
@@ -462,8 +450,12 @@ public:
       if (screen == FieldScreen::Conductor) {
         TubesS3FieldStatus status;
         tubesS3ReadStatus(status);
-        drawConductorTelemetry(status);
-        lastTelemetryDraw = now;
+        if (!renderedMasterValid || renderedMaster != status.isMaster) {
+          drawConductor();
+        } else {
+          drawConductorTelemetry(status);
+          lastTelemetryDraw = now;
+        }
       } else if (screen == FieldScreen::Surveyor || screen == FieldScreen::Updater) {
         drawSurveyorTelemetry();
       }
