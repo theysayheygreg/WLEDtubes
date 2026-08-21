@@ -387,13 +387,24 @@ class LightNode {
     }
 #endif
 
+    // The Tubes mesh ID is a wire-visible node identity, not a transaction lock.
+    // WLED's device ID is deterministically derived from the hardware MAC and
+    // remains stable across rebuilds, reboots, and an application-only flash.
+    static MeshId stableHardwareNodeId() {
+        const String deviceId = getDeviceId();
+        char *end = nullptr;
+        const unsigned long parsed = strtoul(deviceId.substring(0, 3).c_str(), &end, 16);
+        if (end == nullptr || *end != '\0' || parsed == 0 || parsed > 0xFFF) return 0;
+        return MeshId(parsed);
+    }
+
     void reset(MeshId id = 0) {
         if (id == 0) {
-#if defined(LOLIN_WIFI_FIX) && (defined(ARDUINO_ARCH_ESP32C3) || defined(ARDUINO_ARCH_ESP32S2) || defined(ARDUINO_ARCH_ESP32S3))
-            id = random(10, 255);  // Leave room at bottom and top of 12 bits
-#else
-            id = random(256, 4000);  // Leave room at bottom and top of 12 bits
-#endif
+            id = stableHardwareNodeId();
+            // No fabricated fallback: an unavailable provenance is explicit.
+            if (id == 0) {
+                Serial.println(F("Tubes: no stable hardware identity; node ID remains unset"));
+            }
         }
         header.id = id;
         follow(NULL);

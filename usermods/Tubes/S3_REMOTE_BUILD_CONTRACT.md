@@ -110,6 +110,15 @@ Record pass/fail; stop on any failure.
       and the intended peer.
 - [ ] Reboot preserves the expected role/settings; no unexpected authority
       escalation occurs (Anchor defaults off per `usermods/Tubes/docs/S3_FIELD_OS.md`).
+- [ ] Record `TUBES_SURVEY local=...` across two controlled reboots of the same
+      build; the local ID must be identical. The diagnostic `local` value is
+      `TubesS3FieldStatus.deviceId`, sourced from the local Tubes node header.
+      It is distinct from a configured Remote ID, peer `nodeId`, peer `uplinkId`,
+      sync/source ID, and the physical MAC used for transaction locking.
+- [ ] A missing configured Remote ID must not be replaced by a random runtime
+      value: the default local ID uses WLED's established MAC-derived device ID.
+      Existing explicit node/Remote IDs remain authoritative; provenance-free
+      identity is reported as unset rather than fabricated.
 - [ ] PMU/IMU: mark **not exercised / unavailable** unless the board and
       corresponding source initialization are actually observed. Never infer
       health from a compile alone.
