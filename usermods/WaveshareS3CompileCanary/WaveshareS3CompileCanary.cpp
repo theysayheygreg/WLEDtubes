@@ -41,6 +41,8 @@ constexpr int16_t DISPLAY_WIDTH = 480;
 constexpr int16_t DISPLAY_HEIGHT = 480;
 constexpr uint32_t SAMPLE_INTERVAL_MS = 500;
 constexpr uint32_t PREVIEW_INTERVAL_MS = 50;
+// Keep the CST92xx I2C transaction responsive without running it at loop rate.
+constexpr uint32_t TOUCH_POLL_INTERVAL_MS = 8;
 constexpr uint8_t SMOKE_DEFAULT_BRIGHTNESS = 160;
 
 volatile bool touchInterruptPending = false;
@@ -106,6 +108,8 @@ private:
   uint32_t boundedTelemetryCount = 0;
   uint32_t loopCount = 0;
   uint32_t lastTouchMs = 0;
+  uint32_t lastTouchPollMs = 0;
+  bool touchPollStarted = false;
   int16_t lastTouchX = -1;
   int16_t lastTouchY = -1;
   static constexpr uint8_t MIRROR_SEMANTIC_REVISION = 1;
@@ -483,20 +487,24 @@ public:
     if (touchReady) {
       // CST9220 IRQ is a FALLING edge hint only; it does not signal release.
       // Poll getPoint() so its fresh point count can re-arm after lift.
-      touchInterruptPending = false;
-      int16_t x = -1, y = -1;
-      const uint8_t pointCount = touch.getPoint(&x, &y, 1);
       const uint32_t now = millis();
-      const S3TouchEvent event = touchState.sample(now, pointCount, x, y);
-      if (event == S3TouchEvent::Release) {
-        ++touchReleaseCount;
-        Serial.println("WSS3-TOUCH release rearm=1");
-      } else if (event == S3TouchEvent::Hold) {
-        ++touchHoldCount;
-        ++touchCoalescedCount;
-      } else if (event == S3TouchEvent::Press) {
-        ++touchDownCount;
-        onTouch(x, y);
+      if (!touchPollStarted || now - lastTouchPollMs >= TOUCH_POLL_INTERVAL_MS) {
+        touchPollStarted = true;
+        lastTouchPollMs = now;
+        touchInterruptPending = false;
+        int16_t x = -1, y = -1;
+        const uint8_t pointCount = touch.getPoint(&x, &y, 1);
+        const S3TouchEvent event = touchState.sample(now, pointCount, x, y);
+        if (event == S3TouchEvent::Release) {
+          ++touchReleaseCount;
+          Serial.println("WSS3-TOUCH release rearm=1");
+        } else if (event == S3TouchEvent::Hold) {
+          ++touchHoldCount;
+          ++touchCoalescedCount;
+        } else if (event == S3TouchEvent::Press) {
+          ++touchDownCount;
+          onTouch(x, y);
+        }
       }
     }
     const uint32_t now = millis();
