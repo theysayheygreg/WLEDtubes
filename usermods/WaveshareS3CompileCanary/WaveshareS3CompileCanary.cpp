@@ -17,6 +17,7 @@
 #include <Arduino_GFX_Library.h>
 #include <SensorQMI8658.hpp>
 #include <touch/TouchDrvCST92xx.h>
+#include "s3_touch_state_machine.h"
 #include <XPowersLib.h>
 
 #ifdef TUBES_S3_FIELD_OS
@@ -91,8 +92,7 @@ private:
   uint32_t lastPreviewDraw = 0;
   uint32_t lastTelemetryDraw = 0;
   uint32_t lastPeerDiagnostic = 0;
-  bool touchPressed = false;
-  uint32_t touchNoiseUntilMs = 0;
+  S3TouchStateMachine touchState;
   bool renderedMaster = false;
   bool renderedMasterValid = false;
   uint32_t touchActionCount = 0;
@@ -112,7 +112,7 @@ private:
   uint32_t mirrorSemanticHash = 2166136261u;
   TubesS3FieldStatus mirrorStatus;
   uint32_t mirrorRenderedAtMs = 0;
-  static constexpr uint32_t TOUCH_NOISE_DEBOUNCE_MS = 35;
+
 
   static constexpr uint16_t COLOR_BACKGROUND = 0x0863;
   static constexpr uint16_t COLOR_SURFACE = 0x10E7;
@@ -409,40 +409,44 @@ private:
 
   void onTouch(int16_t x, int16_t y) {
     lastTouchX = x; lastTouchY = y; lastTouchMs = millis();
+    const FieldScreen beforeScreen = screen;
     FieldScreen nextScreen = screen;
     bool action = false;
+    const char *actionName = "invalid";
     if (screen != FieldScreen::Home && x >= 360 && y <= 75) {
-      nextScreen = FieldScreen::Home; action = true;
+      nextScreen = FieldScreen::Home; action = true; actionName = "home";
     } else if (screen == FieldScreen::Home) {
       // Hit rects match the drawn 210x164 buttons; taps in the gaps do nothing.
       const bool leftColumn = x >= 20 && x < 230;
       const bool rightColumn = x >= 250 && x < 460;
       if (y >= 84 && y < 248) {
-        if (leftColumn) nextScreen = FieldScreen::Conductor;
-        else if (rightColumn) nextScreen = FieldScreen::Surveyor;
+        if (leftColumn) { nextScreen = FieldScreen::Conductor; actionName = "conductor"; }
+        else if (rightColumn) { nextScreen = FieldScreen::Surveyor; actionName = "surveyor"; }
       } else if (y >= 268 && y < 432) {
-        if (leftColumn) nextScreen = FieldScreen::Anchor;
-        else if (rightColumn) nextScreen = FieldScreen::Updater;
+        if (leftColumn) { nextScreen = FieldScreen::Anchor; actionName = "anchor"; }
+        else if (rightColumn) { nextScreen = FieldScreen::Updater; actionName = "updater"; }
       }
       action = nextScreen != screen;
     } else if (screen == FieldScreen::Conductor && y >= 92 && y < 156 && (x >= 257 && x < 441)) {
       // Follow/Master hit rects match the drawn 88px buttons; the gap does nothing.
-      if (x < 345) action = tubesS3SetMasterAuthority(false);
-      else if (x >= 353) action = tubesS3SetMasterAuthority(true);
+      if (x < 345) { action = tubesS3SetMasterAuthority(false); actionName = "follow"; }
+      else if (x >= 353) { action = tubesS3SetMasterAuthority(true); actionName = "master"; }
     } else if (screen == FieldScreen::Conductor && y >= 320 && y < 410) {
       TubesS3FieldStatus btnStatus; tubesS3ReadStatus(btnStatus);
       if (!btnStatus.isMaster) { nextScreen = screen; return; }
-      if (x >= 20 && x < 230) tubesS3ForcePrevious();
-      else if (x >= 250 && x < 460) tubesS3ForceNext();
+      if (x >= 20 && x < 230) { tubesS3ForcePrevious(); actionName = "previous"; }
+      else if (x >= 250 && x < 460) { tubesS3ForceNext(); actionName = "next"; }
       else return;
       action = true;
     } else if (screen == FieldScreen::Anchor && x >= 40 && x < 440 && y >= 325 && y < 425) {
       // Hit rect matches the drawn 400x100 anchor button.
       TubesS3RouteStatus route; tubesS3ReadRoute(route);
-      tubesS3SetAnchorAuthority(!route.anchorEnabled); action = true;
+      tubesS3SetAnchorAuthority(!route.anchorEnabled); action = true; actionName = route.anchorEnabled ? "anchor-off" : "anchor-on";
     }
     if (!action) { ++touchInvalidCount; return; }
     ++touchActionCount;
+    Serial.printf("WSS3-TOUCH action=%s screen=%u->%u\n", actionName,
+                  static_cast<unsigned>(beforeScreen), static_cast<unsigned>(nextScreen));
     if (nextScreen != screen) { screen = nextScreen; draw(); }
     else if (screen == FieldScreen::Conductor) drawConductor();
     else if (screen == FieldScreen::Anchor) drawAnchor();
@@ -481,16 +485,14 @@ public:
       int16_t x = -1, y = -1;
       const bool down = touch.getPoint(&x, &y, 1) > 0;
       const uint32_t now = millis();
-      if (!down) {
+      const S3TouchEvent event = touchState.sample(now, down, x, y);
+      if (event == S3TouchEvent::Release) {
         ++touchReleaseCount;
-        touchPressed = false;
-      } else if (touchPressed) {
+      } else if (event == S3TouchEvent::Hold) {
         ++touchHoldCount;
         ++touchCoalescedCount;
-      } else if (now >= touchNoiseUntilMs) {
+      } else if (event == S3TouchEvent::Press) {
         ++touchDownCount;
-        touchPressed = true;
-        touchNoiseUntilMs = now + TOUCH_NOISE_DEBOUNCE_MS;
         onTouch(x, y);
       }
     }
