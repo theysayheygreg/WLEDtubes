@@ -480,14 +480,17 @@ public:
 
   void loop() override {
     ++loopCount;
-    if (touchReady && touchInterruptPending) {
+    if (touchReady) {
+      // CST9220 IRQ is a FALLING edge hint only; it does not signal release.
+      // Poll getPoint() so its fresh point count can re-arm after lift.
       touchInterruptPending = false;
       int16_t x = -1, y = -1;
-      const bool down = touch.getPoint(&x, &y, 1) > 0;
+      const uint8_t pointCount = touch.getPoint(&x, &y, 1);
       const uint32_t now = millis();
-      const S3TouchEvent event = touchState.sample(now, down, x, y);
+      const S3TouchEvent event = touchState.sample(now, pointCount, x, y);
       if (event == S3TouchEvent::Release) {
         ++touchReleaseCount;
+        Serial.println("WSS3-TOUCH release rearm=1");
       } else if (event == S3TouchEvent::Hold) {
         ++touchHoldCount;
         ++touchCoalescedCount;

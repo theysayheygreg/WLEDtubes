@@ -3,26 +3,19 @@
 
 enum class S3TouchEvent : uint8_t { None, Press, Hold, Release };
 
-// CST9220 can briefly report no contacts while a finger remains down. Keep the
-// press latched until a complete release window, so a noisy lift cannot rearm.
+// CST9220 getPoint() performs a fresh I2C transaction. Its return count is the
+// contact-validity signal: coordinates may remain the last point on lift, while
+// a zero count is the real release/re-arm boundary.
 class S3TouchStateMachine {
-  static constexpr uint32_t RELEASE_WINDOW_MS = 60;
   bool pressed_ = false;
-  bool releasePending_ = false;
-  uint32_t releaseStartedMs_ = 0;
 public:
-  S3TouchEvent sample(uint32_t nowMs, bool down, int16_t, int16_t) {
-    if (down) {
-      releasePending_ = false;
+  S3TouchEvent sample(uint32_t, uint8_t pointCount, int16_t, int16_t) {
+    if (pointCount > 0) {
       if (!pressed_) { pressed_ = true; return S3TouchEvent::Press; }
       return S3TouchEvent::Hold;
     }
-    if (!pressed_) return S3TouchEvent::None;
-    if (!releasePending_) { releasePending_ = true; releaseStartedMs_ = nowMs; return S3TouchEvent::None; }
-    if (static_cast<uint32_t>(nowMs - releaseStartedMs_) < RELEASE_WINDOW_MS) return S3TouchEvent::None;
-    pressed_ = false;
-    releasePending_ = false;
-    return S3TouchEvent::Release;
+    if (pressed_) { pressed_ = false; return S3TouchEvent::Release; }
+    return S3TouchEvent::None;
   }
   bool pressed() const { return pressed_; }
 };
