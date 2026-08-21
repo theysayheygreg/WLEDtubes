@@ -96,6 +96,18 @@ private:
   bool renderedMaster = false;
   bool renderedMasterValid = false;
   uint32_t touchActionCount = 0;
+  uint32_t touchDownCount = 0;
+  uint32_t touchReleaseCount = 0;
+  uint32_t touchHoldCount = 0;
+  uint32_t touchInvalidCount = 0;
+  uint32_t touchCoalescedCount = 0;
+  uint32_t fullRedrawCount = 0;
+  uint32_t boundedPreviewCount = 0;
+  uint32_t boundedTelemetryCount = 0;
+  uint32_t loopCount = 0;
+  uint32_t lastTouchMs = 0;
+  int16_t lastTouchX = -1;
+  int16_t lastTouchY = -1;
   static constexpr uint8_t MIRROR_SEMANTIC_REVISION = 1;
   uint32_t mirrorSemanticHash = 2166136261u;
   TubesS3FieldStatus mirrorStatus;
@@ -385,6 +397,7 @@ private:
 
   void draw() {
     if (!displayReady) return;
+    ++fullRedrawCount;
     switch (screen) {
       case FieldScreen::Home: drawHome(); break;
       case FieldScreen::Conductor: drawConductor(); break;
@@ -395,6 +408,7 @@ private:
   }
 
   void onTouch(int16_t x, int16_t y) {
+    lastTouchX = x; lastTouchY = y; lastTouchMs = millis();
     FieldScreen nextScreen = screen;
     bool action = false;
     if (screen != FieldScreen::Home && x >= 360 && y <= 75) {
@@ -427,7 +441,7 @@ private:
       TubesS3RouteStatus route; tubesS3ReadRoute(route);
       tubesS3SetAnchorAuthority(!route.anchorEnabled); action = true;
     }
-    if (!action) return;
+    if (!action) { ++touchInvalidCount; return; }
     ++touchActionCount;
     if (nextScreen != screen) { screen = nextScreen; draw(); }
     else if (screen == FieldScreen::Conductor) drawConductor();
@@ -436,6 +450,8 @@ private:
 
 public:
   void setup() override {
+    Serial.printf("WSS3-BOOT source=%s release=%s identity=deviceId:TubesS3FieldStatus.deviceId\n",
+                  __DATE__ " " __TIME__, WLED_RELEASE_NAME);
     if (!claimBoardPins()) return;
     Wire.begin(PERIPHERAL_SDA, PERIPHERAL_SCL);
     displayReady = display.begin();
@@ -459,15 +475,20 @@ public:
   }
 
   void loop() override {
+    ++loopCount;
     if (touchReady && touchInterruptPending) {
       touchInterruptPending = false;
       int16_t x = -1, y = -1;
       const bool down = touch.getPoint(&x, &y, 1) > 0;
       const uint32_t now = millis();
       if (!down) {
-        // A controller-reported release re-arms the next distinct tap.
+        ++touchReleaseCount;
         touchPressed = false;
-      } else if (!touchPressed && now >= touchNoiseUntilMs) {
+      } else if (touchPressed) {
+        ++touchHoldCount;
+        ++touchCoalescedCount;
+      } else if (now >= touchNoiseUntilMs) {
+        ++touchDownCount;
         touchPressed = true;
         touchNoiseUntilMs = now + TOUCH_NOISE_DEBOUNCE_MS;
         onTouch(x, y);
@@ -490,11 +511,21 @@ public:
         firstPeer = false;
       }
       Serial.println();
+      Serial.printf("WSS3-HEALTH display=%u/%ux%u touch=%u irq=%u down=%lu release=%lu hold=%lu coal=%lu invalid=%lu lastxy=%d,%d age=%lu full=%lu bounded=%lu/%lu loops=%lu authority=%s/%s pmu=UNKNOWN imu=UNKNOWN\n",
+        displayReady ? 1U : 0U, DISPLAY_WIDTH, DISPLAY_HEIGHT, touchReady ? 1U : 0U,
+        touchInterruptPending ? 1U : 0U, static_cast<unsigned long>(touchDownCount),
+        static_cast<unsigned long>(touchReleaseCount), static_cast<unsigned long>(touchHoldCount),
+        static_cast<unsigned long>(touchCoalescedCount), static_cast<unsigned long>(touchInvalidCount),
+        lastTouchX, lastTouchY, lastTouchMs ? static_cast<unsigned long>(now - lastTouchMs) : 0UL,
+        static_cast<unsigned long>(fullRedrawCount), static_cast<unsigned long>(boundedPreviewCount),
+        static_cast<unsigned long>(boundedTelemetryCount), static_cast<unsigned long>(loopCount),
+        status.isMaster ? "MASTER" : "FOLLOWER", status.isMaster ? "BROADCAST" : "LOCAL_ONLY");
     }
     if (displayReady && screen == FieldScreen::Conductor && now - lastPreviewDraw >= PREVIEW_INTERVAL_MS) {
       lastPreviewDraw = now;
       TubesS3FieldStatus status;
       tubesS3ReadStatus(status);
+      ++boundedPreviewCount;
       drawConductorPreview(status);
       recordMirrorSemantic(&status);
     }
@@ -506,6 +537,7 @@ public:
           drawConductor();
         } else {
           drawConductorTelemetry(status);
+          ++boundedTelemetryCount;
           lastTelemetryDraw = now;
           recordMirrorSemantic(&status);
         }
