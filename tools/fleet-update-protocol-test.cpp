@@ -64,6 +64,23 @@ int main() {
   }
   require(delays.size() >= 45, "stable scheduling clustered fifty devices too tightly");
 
+  // The proven P2P seed is an exact-target, equal-release serve command with
+  // no OTA server, credentials, wildcard, or force flag.
+  FleetUpdateOffer propagation;
+  require(makeModernPropagationServeCommand(
+      propagation, 47, 0x10203040, 0x1234),
+      "exact propagation command was rejected");
+  require(propagation.flags == FleetUpdatePropagate,
+      "propagation command lost explicit opt-in");
+  require(propagation.tubesVersion == 47 && propagation.targetDeviceId == 0x1234,
+      "propagation command lost artifact or target identity");
+  require(propagation.serverPort == 0 && propagation.ssidLength == 0
+      && propagation.passwordLength == 0,
+      "propagation command invented OTA transport or credentials");
+  propagation.targetDeviceId = 0;
+  require(!isValidFleetUpdateOffer(propagation),
+      "wildcard serve-current propagation was accepted");
+
   printf("fleet update protocol scenarios passed\n");
   return 0;
 }

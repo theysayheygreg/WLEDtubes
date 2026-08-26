@@ -4198,8 +4198,20 @@ class PatternController : public MessageReceiver {
   }
 
   bool broadcastFleetUpdateOffer(const FleetUpdateOffer &offer) {
-    if (!isValidFleetUpdateOffer(offer)) return false;
-    return sendV3ControlCommand(COMMAND_FLEET_UPGRADE, &offer, sizeof(offer));
+    const bool valid = isValidFleetUpdateOffer(offer);
+    const bool controlSent = valid
+        && sendV3ControlCommand(COMMAND_FLEET_UPGRADE, &offer, sizeof(offer));
+    bool neighborSent = false;
+    if (valid) {
+      ControlChannelBody control;
+      control.command = COMMAND_FLEET_UPGRADE;
+      control.commandLength = sizeof(offer);
+      memcpy(control.commandData, &offer, sizeof(offer));
+      const TubesChannelPayload payload = makeChannelPayload(
+          ControlChannel, ChannelRequest, &control, sizeof(offer) + 2);
+      neighborSent = node.sendV3NeighborChannel(ControlChannel, payload);
+    }
+    return controlSent || neighborSent;
   }
 
   bool requestDeviceReport(const uint8_t mac[6], uint32_t nonce) {
@@ -4709,7 +4721,14 @@ class PatternController : public MessageReceiver {
         memcpy(&offer, data, sizeof(offer));
         if (!isValidFleetUpdateOffer(offer))
           return false;
-        if (fleetUpdateTargetsDevice(offer, node.header.id) && !isHomeLightRole())
+        const bool receiverAllowed =
+#ifdef TUBES_S3_FIELD_OS
+            !(offer.flags & FleetUpdatePropagate);
+#else
+            true;
+#endif
+        if (receiverAllowed && fleetUpdateTargetsDevice(offer, node.header.id)
+            && !isHomeLightRole())
           updater.startFleet(offer);
         return true;
       }

@@ -598,6 +598,21 @@ class LightNode {
         return true;
     }
 
+    // Carry one already-validated native channel packet directly to nearby peers.
+    bool sendV3NeighborChannel(uint8_t channel, const TubesChannelPayload& payload) {
+        if (!isValidTubesChannelPayload(channel, payload)) {
+            Serial.printf("Invalid v3 neighbor channel payload: %02X\n", channel);
+            return false;
+        }
+        NodeMessage message;
+        message.header = nativeHeader();
+        message.recipients = RECIPIENTS_NEIGHBORS;
+        message.command = channel;
+        memcpy(message.data, &payload, sizeof(payload));
+        broadcastMessage(&message);
+        return true;
+    }
+
     // Send one variable-length channel snapshot after the complete packet has
     // passed the same ingress validation used by receivers.
     bool sendV3ChannelV2(uint8_t channel, TubesChannelMessageV2& message) {

@@ -103,3 +103,4 @@ size_t tubesS3CarrierTargetCount();
 bool tubesS3ReadCarrierTarget(size_t index, TubesS3CarrierTarget &target);
 size_t tubesS3CarrierArtifactCount();
 bool tubesS3ReadCarrierArtifact(size_t index, TubesS3CarrierArtifact &artifact);
+bool tubesS3SeedDig2GoPropagation(uint16_t nodeId);
