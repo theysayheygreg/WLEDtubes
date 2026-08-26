@@ -12,10 +12,10 @@
 #error "The S3 may seed Dig2Go propagation but must not enable the peer receiver/host"
 #endif
 
-extern const uint8_t dig2goStart[] asm("_binary_build_output_s3_vault_esp32_quinled_dig2go_tubes_p2p_v48_bin_start");
-extern const uint8_t dig2goEnd[] asm("_binary_build_output_s3_vault_esp32_quinled_dig2go_tubes_p2p_v48_bin_end");
-extern const uint8_t athomC3Start[] asm("_binary_build_output_s3_vault_esp32_c3_athom_tubes_v48_bin_start");
-extern const uint8_t athomC3End[] asm("_binary_build_output_s3_vault_esp32_c3_athom_tubes_v48_bin_end");
+extern const uint8_t dig2goStart[] asm("_binary_build_output_s3_vault_esp32_quinled_dig2go_tubes_p2p_v47_bin_start");
+extern const uint8_t dig2goEnd[] asm("_binary_build_output_s3_vault_esp32_quinled_dig2go_tubes_p2p_v47_bin_end");
+extern const uint8_t athomC3Start[] asm("_binary_build_output_s3_vault_esp32_c3_athom_tubes_v47_bin_start");
+extern const uint8_t athomC3End[] asm("_binary_build_output_s3_vault_esp32_c3_athom_tubes_v47_bin_end");
 
 namespace {
 constexpr char FIRMWARE_PATH[] = "/tubes/firmware.bin";

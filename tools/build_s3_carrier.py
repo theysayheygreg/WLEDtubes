@@ -17,15 +17,14 @@ FIRMWARE = REPO / "build_output" / "firmware"
 OTA_SLOT = 0x600000
 REQUIRED_HEADROOM = 0x40000
 PROFILES = (
-    ("esp32_quinled_dig2go_tubes_p2p_v48",
+    ("esp32_quinled_dig2go_tubes_p2p",
      "esp32_quinled_dig2go_tubes_p2p.bin",
-     "esp32_quinled_dig2go_tubes_p2p_v48.bin", "dig2go",
-     "9f7dce029e19910f2dc3e7e8812af8569d3f0ca704072f1c2d852321d4c27249"),
-    ("esp32-c3-athom_tubes_v48", "esp32-c3-athom_tubes.bin",
-     "esp32-c3-athom_tubes_v48.bin", "athom-c3",
-     "b815f823d734dc22836fc1a209447765f891c27d800cf82593c10bc19da4b806"),
+     "esp32_quinled_dig2go_tubes_p2p_v47.bin", "dig2go",
+     "6ea9a3c78df2511f1cbdde9d62cd776e645e4a8607af370e70164be5a939e20c"),
+    ("esp32-c3-athom_tubes", "esp32-c3-athom_tubes.bin",
+     "esp32-c3-athom_tubes_v47.bin", "athom-c3",
+     "e437f595278cd20d994ba345d2f33dabe5210f5e694b97e43bf5401981726cdd"),
 )
-CARRIER_RELEASE = 48
 
 
 def current_release() -> int:
@@ -71,9 +70,11 @@ def main() -> None:
     parser.add_argument("--pio", default="pio")
     parser.add_argument("--skip-payload-build", action="store_true")
     parser.add_argument("--payload-dir", type=pathlib.Path, default=FIRMWARE,
-                        help="directory containing exact PR72 v48 payloads")
+                        help="directory containing exact native PR72 payloads")
     args = parser.parse_args()
-    release = CARRIER_RELEASE
+    release = current_release()
+    if release != 47:
+        raise SystemExit(f"exact PR72 carrier requires native release 47, got {release}")
     VAULT.mkdir(parents=True, exist_ok=True)
     if not args.skip_payload_build:
         for environment, _, _, _, _ in PROFILES:

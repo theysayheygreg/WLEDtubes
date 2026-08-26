@@ -14,7 +14,7 @@ ESP32-S3-Touch-AMOLED-2.16. It assumes 16 MB QIO flash at 80 MHz, 8 MB OPI PSRAM
 The Tubes field OS presents four workspaces: Conductor, Surveyor, Update, and
 Channels. Conductor reads WLED's canonical completed framebuffer. Surveyor shows
 fresh nearby Tubes nodes. The carrier build embeds PR72's explicit-propagation
-Dig2Go v48 image and a standard, non-propagating Athom C3 v48 image, and exposes
+Dig2Go v47 image and a standard, non-propagating Athom C3 v47 image, and exposes
 the bounded one-device update baton. Channels is reserved for
 interactions with the release-40 Beat, Pattern, and Palette channel types.
 
