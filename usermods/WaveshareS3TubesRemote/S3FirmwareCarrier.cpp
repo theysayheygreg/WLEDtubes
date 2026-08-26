@@ -4,7 +4,12 @@
 #include "wled.h"
 #include "../Tubes/s3_field_api.h"
 #include "../Tubes/s3_firmware_vault.h"
+#include "../Tubes/dig2go_peer_config.h"
 #include "s3_vault_artifacts.h"
+
+#if TUBES_ENABLE_DIG2GO_PEER_PROPAGATION
+#error "The S3 may seed Dig2Go propagation but must not enable the peer receiver/host"
+#endif
 
 extern const uint8_t dig2goStart[] asm("_binary_build_output_s3_vault_esp32_quinled_dig2go_tubes_bin_start");
 extern const uint8_t dig2goEnd[] asm("_binary_build_output_s3_vault_esp32_quinled_dig2go_tubes_bin_end");

@@ -12,6 +12,7 @@
 #include "effects.h"
 #include "led_strip.h"
 #include "global_state.h"
+#include "dig2go_peer_config.h"
 #include "node.h"
 #include "deferred_bpm_broadcast.h"
 #include "device_report_protocol.h"

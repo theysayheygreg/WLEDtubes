@@ -1,5 +1,7 @@
 #pragma once
 
+#include "dig2go_peer_config.h"
+
 #include <Arduino.h>
 #include "global_state.h"
 #include "espnow_broadcast.h"

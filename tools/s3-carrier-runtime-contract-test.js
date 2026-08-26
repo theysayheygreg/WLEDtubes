@@ -72,6 +72,7 @@ it('seeds proven Dig2Go propagation only from explicit exact-artifact input', ()
   assert.match(protocol, /command\.flags = FleetUpdatePropagate/);
   assert.match(protocol, /command\.serverPort = 0/);
   assert.match(protocol, /command\.targetDeviceId = targetDeviceId/);
+  assert.match(source, /#if TUBES_ENABLE_DIG2GO_PEER_PROPAGATION[\s\S]*#error/);
   assert.doesNotMatch(source, /MODERN_PROPAGATION_LEASE_PATH|CURRENT_RELEASE_MARKER_PATH/);
 });
 
