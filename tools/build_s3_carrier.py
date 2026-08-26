@@ -18,8 +18,12 @@ OTA_SLOT = 0x600000
 REQUIRED_HEADROOM = 0x40000
 PROFILES = (
     ("esp32_quinled_dig2go_tubes_p2p_v48",
-     "esp32_quinled_dig2go_tubes_p2p_v48.bin", "dig2go"),
-    ("esp32-c3-athom_tubes_v48", "esp32-c3-athom_tubes_v48.bin", "athom-c3"),
+     "esp32_quinled_dig2go_tubes_p2p.bin",
+     "esp32_quinled_dig2go_tubes_p2p_v48.bin", "dig2go",
+     "9f7dce029e19910f2dc3e7e8812af8569d3f0ca704072f1c2d852321d4c27249"),
+    ("esp32-c3-athom_tubes_v48", "esp32-c3-athom_tubes.bin",
+     "esp32-c3-athom_tubes_v48.bin", "athom-c3",
+     "b815f823d734dc22836fc1a209447765f891c27d800cf82593c10bc19da4b806"),
 )
 CARRIER_RELEASE = 48
 
@@ -66,22 +70,30 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--pio", default="pio")
     parser.add_argument("--skip-payload-build", action="store_true")
+    parser.add_argument("--payload-dir", type=pathlib.Path, default=FIRMWARE,
+                        help="directory containing exact PR72 v48 payloads")
     args = parser.parse_args()
     release = CARRIER_RELEASE
     VAULT.mkdir(parents=True, exist_ok=True)
     if not args.skip_payload_build:
-        for environment, _, _ in PROFILES:
+        for environment, _, _, _, _ in PROFILES:
             run(args.pio, "run", "-e", environment)
 
     validator = load_validator()
     artifacts = []
-    for _, filename, profile in PROFILES:
-        source = FIRMWARE / filename
+    for _, source_filename, vault_filename, profile, expected_sha256 in PROFILES:
+        source = args.payload_dir / source_filename
         if not source.is_file():
             raise SystemExit(f"missing payload artifact: {source}")
-        destination = VAULT / filename
+        destination = VAULT / vault_filename
         shutil.copyfile(source, destination)
-        artifacts.append(validator.inspect(profile, destination, release))
+        artifact = validator.inspect(profile, destination, release)
+        if artifact.sha256 != expected_sha256:
+            raise SystemExit(
+                f"{source}: SHA-256 {artifact.sha256} does not match exact PR72 "
+                f"artifact {expected_sha256}"
+            )
+        artifacts.append(artifact)
     write_header(artifacts, release)
 
     run(args.pio, "run", "-e", "waveshare_s3_tubes_carrier")
