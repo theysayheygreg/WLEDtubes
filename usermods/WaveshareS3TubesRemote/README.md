@@ -13,8 +13,9 @@ ESP32-S3-Touch-AMOLED-2.16. It assumes 16 MB QIO flash at 80 MHz, 8 MB OPI PSRAM
 
 The Tubes field OS presents four workspaces: Conductor, Surveyor, Update, and
 Channels. Conductor reads WLED's canonical completed framebuffer. Surveyor shows
-fresh nearby Tubes nodes. The carrier build embeds the standard Dig2Go and Athom C3
-firmware and exposes the bounded one-device update baton. Channels is reserved for
+fresh nearby Tubes nodes. The carrier build embeds PR72's explicit-propagation
+Dig2Go v48 image and a standard, non-propagating Athom C3 v48 image, and exposes
+the bounded one-device update baton. Channels is reserved for
 interactions with the release-40 Beat, Pattern, and Palette channel types.
 
 The `waveshare_s3_tubes_remote` environment builds the base field OS. The explicit
@@ -25,7 +26,7 @@ Tubes mesh; neither owns or drives a physical LED output pin.
 ## Tubes integration boundaries
 
 This usermod is a board adapter over the shared Tubes implementation. It uses the
-existing release-40 `ChannelWinnerTable` admission rules, `FleetUpdateOffer` wire
+existing `ChannelWinnerTable` admission rules, `FleetUpdateOffer` wire
 format, device-report probe/reply messages, fleet firmware identity, pull URL, and
 `x-MD5` verification contract. It does not define a second channel protocol or a
 second receiver-side updater.

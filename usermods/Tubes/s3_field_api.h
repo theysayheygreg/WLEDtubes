@@ -50,6 +50,7 @@ struct TubesS3CarrierTarget {
 struct TubesS3CarrierArtifact {
   uint8_t family = 0;
   uint8_t variant = 0;
+  bool peerPropagation = false;
   uint16_t release = 0;
   uint32_t size = 0;
 };

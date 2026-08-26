@@ -74,23 +74,6 @@ inline bool isValidFleetUpdateOffer(const FleetUpdateOffer& offer) {
           && offer.ssidLength == 0 && offer.passwordLength == 0));
 }
 
-// Proven Dig2Go propagation seed contract: an exact current-version target is
-// asked to serve its already-running image. It carries no OTA server or credentials.
-inline bool makeModernPropagationServeCommand(
-    FleetUpdateOffer& command,
-    uint16_t runningVersion,
-    uint32_t nonce,
-    DeviceId targetDeviceId
-) {
-  command = FleetUpdateOffer();
-  command.flags = FleetUpdatePropagate;
-  command.tubesVersion = runningVersion;
-  command.nonce = nonce;
-  command.serverPort = 0;
-  command.targetDeviceId = targetDeviceId;
-  return isValidFleetUpdateOffer(command);
-}
-
 inline bool setFleetUpdateCredentials(
     FleetUpdateOffer& offer,
     const char* ssid,

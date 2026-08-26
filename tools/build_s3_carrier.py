@@ -17,9 +17,11 @@ FIRMWARE = REPO / "build_output" / "firmware"
 OTA_SLOT = 0x600000
 REQUIRED_HEADROOM = 0x40000
 PROFILES = (
-    ("esp32_quinled_dig2go_tubes", "esp32_quinled_dig2go_tubes.bin", "dig2go"),
-    ("esp32-c3-athom_tubes", "esp32-c3-athom_tubes.bin", "athom-c3"),
+    ("esp32_quinled_dig2go_tubes_p2p_v48",
+     "esp32_quinled_dig2go_tubes_p2p_v48.bin", "dig2go"),
+    ("esp32-c3-athom_tubes_v48", "esp32-c3-athom_tubes_v48.bin", "athom-c3"),
 )
+CARRIER_RELEASE = 48
 
 
 def current_release() -> int:
@@ -65,7 +67,7 @@ def main() -> None:
     parser.add_argument("--pio", default="pio")
     parser.add_argument("--skip-payload-build", action="store_true")
     args = parser.parse_args()
-    release = current_release()
+    release = CARRIER_RELEASE
     VAULT.mkdir(parents=True, exist_ok=True)
     if not args.skip_payload_build:
         for environment, _, _ in PROFILES:

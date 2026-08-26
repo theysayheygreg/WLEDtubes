@@ -12,6 +12,8 @@ const ui = fs.readFileSync(path.join(repository,
   'usermods/WaveshareS3TubesRemote/WaveshareS3TubesRemote.cpp'), 'utf8');
 const protocol = fs.readFileSync(path.join(repository,
   'usermods/Tubes/fleet_update_protocol.h'), 'utf8');
+const propagation = fs.readFileSync(path.join(repository,
+  'usermods/Tubes/modern_propagation_lease.h'), 'utf8');
 
 it('serves the exact fleet pull endpoint with integrity headers', () => {
   assert.match(source, /"\/tubes\/firmware\.bin"/);
@@ -57,6 +59,9 @@ it('arms explicitly and broadcasts Steve fleet offer vocabulary', () => {
 
 it('seeds proven Dig2Go propagation only from explicit exact-artifact input', () => {
   assert.match(ui, /DIG2GO \/ TAP TO SEED P2P/);
+  assert.match(ui, /artifact\.peerPropagation/);
+  assert.match(source, /artifact\.peerPropagation = true/);
+  assert.match(source, /artifact\.peerPropagation = false/);
   assert.match(ui, /tubesS3SeedDig2GoPropagation/);
   assert.match(ui, /isSeedableDig2GoTarget/);
   assert.match(ui, /tubesS3ReadCarrierArtifact\(index, artifact\)/);
@@ -69,9 +74,9 @@ it('seeds proven Dig2Go propagation only from explicit exact-artifact input', ()
   assert.match(source, /embeddedSize != S3_VAULT_DIG2GO_SIZE/);
   assert.match(source, /makeModernPropagationServeCommand/);
   assert.match(source, /tubesS3BroadcastFleetOffer/);
-  assert.match(protocol, /command\.flags = FleetUpdatePropagate/);
-  assert.match(protocol, /command\.serverPort = 0/);
-  assert.match(protocol, /command\.targetDeviceId = targetDeviceId/);
+  assert.match(propagation, /command\.flags = FleetUpdatePropagate/);
+  assert.match(propagation, /command\.serverPort = 0/);
+  assert.match(propagation, /command\.targetDeviceId = targetDeviceId/);
   assert.match(source, /#if TUBES_ENABLE_DIG2GO_PEER_PROPAGATION[\s\S]*#error/);
   assert.doesNotMatch(source, /MODERN_PROPAGATION_LEASE_PATH|CURRENT_RELEASE_MARKER_PATH/);
 });
@@ -87,5 +92,5 @@ it('keeps current Dig2Go visible for seeding without admitting current C3 target
 it('keeps propagation seed commands out of the S3 receiver path', () => {
   const controller = fs.readFileSync(path.join(repository,
     'usermods/Tubes/controller.h'), 'utf8');
-  assert.match(controller, /#ifdef TUBES_S3_FIELD_OS[\s\S]*!\(offer\.flags & FleetUpdatePropagate\)[\s\S]*updater\.startFleet\(offer\)/);
+  assert.match(controller, /#ifdef TUBES_S3_FIELD_OS[\s\S]*if \(offer\.flags & FleetUpdatePropagate\)[\s\S]*return true;[\s\S]*updater\.startFleet\(offer\)/);
 });

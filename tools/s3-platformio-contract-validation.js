@@ -32,6 +32,6 @@ test('Waveshare effective environment has unique artifact identity, one enabled 
 	const carrierFlags = [].concat(carrier.build_flags).join(' ');
 	assert.match(carrierFlags, /TUBES_S3_FIRMWARE_CARRIER/);
 	assert.match(carrierFlags, /WLED_RELEASE_NAME=\\"WAVESHARE_S3_TUBES_CARRIER\\"/);
-	assert.match([].concat(carrier['board_build.embed_files']).join(' '), /esp32_quinled_dig2go_tubes\.bin/);
-	assert.match([].concat(carrier['board_build.embed_files']).join(' '), /esp32-c3-athom_tubes\.bin/);
+	assert.match([].concat(carrier['board_build.embed_files']).join(' '), /esp32_quinled_dig2go_tubes_p2p_v48\.bin/);
+	assert.match([].concat(carrier['board_build.embed_files']).join(' '), /esp32-c3-athom_tubes_v48\.bin/);
 });

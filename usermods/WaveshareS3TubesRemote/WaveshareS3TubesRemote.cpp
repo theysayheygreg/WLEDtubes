@@ -389,7 +389,7 @@ private:
                         UINT32_MAX, "THIS DEVICE"});
     display.setTextColor(COLOR_MUTED);
     display.setCursor(24, 158);
-    display.println(F("EMBEDDED v47 FIRMWARE"));
+    display.println(F("EMBEDDED FIRMWARE"));
     for (size_t index = 0; index < tubesS3CarrierArtifactCount(); index++) {
       TubesS3CarrierArtifact artifact;
       const int16_t y = 174 + index * 38;
@@ -403,7 +403,8 @@ private:
         if (artifact.family == TubeHardwareDig2Go) display.print(F("DIG2GO"));
         else if (artifact.family == TubeHardwareAthomC3) display.print(F("ATHOM C3"));
         else display.print(F("UNKNOWN TARGET"));
-        if (artifact.variant == TubeVariantStandard) display.print(F(" | STANDARD | v"));
+        if (artifact.peerPropagation) display.print(F(" | P2P | v"));
+        else if (artifact.variant == TubeVariantStandard) display.print(F(" | STANDARD | v"));
         else display.print(F(" | VARIANT UNKNOWN | v"));
         display.print(artifact.release);
       }

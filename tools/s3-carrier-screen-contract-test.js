@@ -16,13 +16,14 @@ it('offers scan and exact target arming from Update without touching Conductor c
   assert.match(source, /tubesS3ReadCarrierTarget\(index, target\)/);
   assert.match(source, /tubesS3ArmCarrier\(target\.mac, target\.family, target\.variant, target\.release\)/);
   assert.match(source, /THIS S3 UPDATE CARRIER/);
-  assert.match(source, /EMBEDDED v47 FIRMWARE/);
+  assert.match(source, /EMBEDDED FIRMWARE/);
   assert.match(source, /TubeHardwareDig2Go/);
   assert.match(source, /F\("DIG2GO"\)/);
   assert.match(source, /TubeHardwareAthomC3/);
   assert.match(source, /F\("ATHOM C3"\)/);
   assert.match(source, /TubeVariantStandard/);
   assert.match(source, /F\(" \| STANDARD \| v"\)/);
+  assert.match(source, /F\(" \| P2P \| v"\)/);
   assert.match(source, /ARTIFACT UNAVAILABLE/);
   assert.match(source, /NO DEVICES NEARBY/);
   assert.match(source, /DISCOVERED UPDATE TARGETS/);
